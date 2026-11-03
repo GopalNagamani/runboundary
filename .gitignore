@@ -1,0 +1,6 @@
+/target/
+.agentvault/
+.agentvault-recovery-*/
+
+/test-results/
+__pycache__/

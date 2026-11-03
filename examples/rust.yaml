@@ -1,0 +1,45 @@
+version: 1
+sandbox:
+  enabled: true
+  backend: bubblewrap
+  fail_closed: true
+filesystem:
+  protected:
+    - "**/.env"
+    - "**/.env.*"
+    - "**/*.pem"
+    - "**/*.key"
+    - "**/credentials.json"
+    - "**/*.jks"
+    - "**/*.keystore"
+    - "**/*.p12"
+    - "**/*.pfx"
+    - "**/*.mobileprovision"
+    - "**/*.provisionprofile"
+    - "**/key.properties"
+    - "**/keystore.properties"
+    - "**/.npmrc"
+    - "**/.pypirc"
+    - "**/.netrc"
+    - "**/.m2/settings.xml"
+    - "**/.aws/**"
+    - "**/.ssh/**"
+    - "**/.kube/**"
+  allowed:
+    - "**/.env.example"
+    - "**/.env.sample"
+environment:
+  inherit_all: false
+  allow:
+    - PATH
+    - TERM
+    - LANG
+    - LC_ALL
+audit:
+  enabled: true
+  redact_secrets: true
+
+# Select one complete distribution, not the host Cargo credential/cache directory.
+toolchains:
+  rust:
+    toolchain_root: /opt/rust-toolchain

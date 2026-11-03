@@ -1,0 +1,34 @@
+name: Rust and Linux sandbox tests
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  portable:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - run: cargo fmt --check
+      - run: cargo test --locked
+      - run: cargo clippy --all-targets --locked -- -D warnings
+  sandbox:
+    # A dedicated VM is necessary when a hosted runner blocks user namespaces.
+    # Failure is intentional: the test must never silently weaken the host policy.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: sudo apt-get update && sudo apt-get install -y bubblewrap python3 nodejs
+      - run: uname -a && bwrap --version && python3 --version && node --version
+      - run: cargo test --locked -- --ignored --nocapture --test-threads=1
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - run: brew install node python@3.12
+      - run: bash scripts/test-macos.sh --runtime-root "$(brew --prefix)"

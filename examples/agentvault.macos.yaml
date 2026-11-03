@@ -1,0 +1,31 @@
+version: 1
+sandbox:
+  enabled: true
+  backend: seatbelt
+  # Explicit approval exposes every file in the chosen runtime tree read-only.
+  # Example: runtime_roots: [/opt/homebrew]
+  runtime_roots: []
+  fail_closed: true
+filesystem:
+  protected:
+    - "**/.env"
+    - "**/.env.*"
+    - "**/*.pem"
+    - "**/*.key"
+    - "**/credentials.json"
+    - "**/.aws/**"
+    - "**/.ssh/**"
+    - "**/.kube/**"
+  allowed:
+    - "**/.env.example"
+    - "**/.env.sample"
+environment:
+  inherit_all: false
+  allow:
+    - PATH
+    - TERM
+    - LANG
+    - LC_ALL
+audit:
+  enabled: true
+  redact_secrets: true

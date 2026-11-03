@@ -1,0 +1,22 @@
+// !$*UTF8*$!
+{
+    archiveVersion = 1;
+    classes = {};
+    objectVersion = 56;
+    objects = {
+        /* Begin PBXProject section */
+        PROJECT = {isa = PBXProject; mainGroup = MAIN; projectDirPath = ""; targets = (); };
+        /* End PBXProject section */
+        MAIN = {isa = PBXGroup; children = (SOURCES, LOCALIZED, MODEL, PRODUCT); sourceTree = "<group>"; };
+        SOURCES = {isa = PBXGroup; children = (EXISTING,); path = Sources; sourceTree = "<group>"; };
+        EXISTING = {isa = PBXFileReference; path = Existing.swift; sourceTree = "<group>"; };
+        LOCALIZED = {isa = PBXVariantGroup; children = (ENGLISH,); name = Localizable.strings; sourceTree = "<group>"; };
+        ENGLISH = {isa = PBXFileReference; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
+        MODEL = {isa = XCVersionGroup; children = (VERSION,); path = App.xcdatamodeld; sourceTree = "<group>"; };
+        VERSION = {isa = PBXFileReference; path = App.xcdatamodel; sourceTree = "<group>"; };
+        PRODUCT = {isa = PBXFileReference; path = App.app; sourceTree = BUILT_PRODUCTS_DIR; };
+        PHASE = {isa = PBXSourcesBuildPhase; files = (BUILD,); };
+        BUILD = {isa = PBXBuildFile; fileRef = EXISTING; };
+    };
+    rootObject = PROJECT;
+}

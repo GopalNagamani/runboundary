@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="23501" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
+ <device id="retina6_12" orientation="portrait" appearance="light"/>
+ <dependencies><deployment identifier="iOS"/><plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="23501"/><capability name="Safe area layout guides" minToolsVersion="9.0"/></dependencies>
+ <objects>
+  <placeholder placeholderIdentifier="IBFilesOwner" id="owner" userLabel="File's Owner" customClass="NSObject"/>
+  <placeholder placeholderIdentifier="IBFirstResponder" id="responder" customClass="UIResponder"/>
+  <view contentMode="scaleToFill" id="view"><rect key="frame" x="0.0" y="0.0" width="320" height="480"/><viewLayoutGuide key="safeArea" id="safe"/></view>
+ </objects>
+</document>
