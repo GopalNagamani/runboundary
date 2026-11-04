@@ -92,6 +92,23 @@ is still required.
 
 ## Reviewing and applying edits
 
+For a local browser review with side-by-side original/edited text and file review
+checkboxes, run from your original project directory:
+
+```sh
+agentvault review SESSION_ID --web
+```
+
+On macOS the browser opens automatically; otherwise open the printed URL. Keep
+the Terminal running. The page's Apply button applies the entire session through
+the existing conflict checks and recovery journal. Close Xcode first. Ctrl+C
+stops review without applying. A session lock prevents other AgentVault commands
+from changing this session during review; externally edited workspace files cause
+apply to refuse until you restart review. Binary files and text over 64 KiB show
+summaries. This view shows complete before/after text rather than aligned diff
+hunks or syntax highlighting. No external browser assets are downloaded.
+
+
 By default the original project is unchanged. Changed workspaces are retained under a private temporary parent; AgentVault prints a session identifier:
 
 ```sh

@@ -4,6 +4,7 @@ pub mod init;
 pub mod ios_build;
 pub mod preview;
 pub mod review;
+pub mod review_web;
 pub mod run;
 pub mod tools;
 pub mod xcode_register;
@@ -108,6 +109,9 @@ pub enum Commands {
         /// Show file changes before approving; --diff remains supported.
         #[arg(long, visible_alias = "review")]
         diff: bool,
+        /// Open a local browser review with explicit apply approval.
+        #[arg(long, conflicts_with_all = ["apply", "diff"])]
+        web: bool,
     },
     /// Register files in a retained Xcode project's navigator (no target membership).
     #[command(
@@ -230,8 +234,13 @@ fn execute_inner(cli: Cli) -> anyhow::Result<i32> {
             session,
             apply,
             diff,
+            web,
         } => {
-            review::execute(&root, &session, apply, diff)?;
+            if web {
+                review_web::execute(&root, &session)?;
+            } else {
+                review::execute(&root, &session, apply, diff)?;
+            }
             Ok(0)
         }
         Commands::Preview {
