@@ -4,6 +4,7 @@ RunBoundary runs coding agents in a native Seatbelt sandbox with a copied,
 filtered project workspace. This npm distribution includes the `runb`
 executable for Apple Silicon Macs. The native macOS backend is experimental.
 Linux and Windows npm releases are coming soon.
+The workspace limit is 1 GiB total and 64 MiB per file.
 
 The preview includes terminal review through `runb diff SESSION` and explicit
 approval through `runb apply SESSION`. Browser review is in development.

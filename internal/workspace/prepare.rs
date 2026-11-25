@@ -11,7 +11,8 @@ use std::{
 };
 use tempfile::TempDir;
 pub const FILE_LIMIT: u64 = 64 * 1024 * 1024;
-pub const TOTAL_LIMIT: u64 = 512 * 1024 * 1024;
+const TOTAL_LIMIT_MIB: u64 = 1024;
+pub const TOTAL_LIMIT: u64 = TOTAL_LIMIT_MIB * 1024 * 1024;
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Entry {
     pub hash: [u8; 32],
@@ -146,7 +147,7 @@ fn walk(
             let bytes = target.as_os_str().as_bytes();
             *total += bytes.len() as u64;
             if *total > TOTAL_LIMIT {
-                bail!("workspace exceeds 512 MiB limit");
+                bail!("workspace exceeds {TOTAL_LIMIT_MIB} MiB limit");
             }
             out.insert(
                 path,
@@ -167,7 +168,7 @@ fn walk(
             }
             *total += bytes.len() as u64;
             if *total > TOTAL_LIMIT {
-                bail!("workspace exceeds 512 MiB limit");
+                bail!("workspace exceeds {TOTAL_LIMIT_MIB} MiB limit");
             }
             if let Some(d) = dest {
                 d.create(&name, &bytes, 0o600 | (m.mode & 0o100))?;
