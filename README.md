@@ -6,7 +6,14 @@ RunBoundary excludes sensitive project paths before copying files and keeps the 
 
 ## 60-second demo
 
-[![Watch RunBoundary exclude a fake .env file and review a sandboxed edit](docs/media/runboundary-demo.png)](docs/media/runboundary-demo.mp4)
+![Animated walkthrough of RunBoundary excluding a fake .env file and reviewing a sandboxed edit](docs/media/runboundary-demo.gif)
+
+<details>
+<summary>Open the video player</summary>
+
+https://github.com/user-attachments/assets/1a7f1d5c-5e42-473a-a6c7-e4786d978ffd
+
+</details>
 
 See how to install RunBoundary on an Apple Silicon Mac, run in a filtered copy,
 and review an edit before applying it to the original project.
