@@ -4,7 +4,7 @@ A Rust CLI that launches coding agents in a mandatory OS sandbox with a copied, 
 
 RunBoundary excludes sensitive project paths before copying files and keeps the original project outside the agent’s approved filesystem access. It never falls back to an unsandboxed launch. Filename patterns decide what is copied; Linux namespaces or macOS Seatbelt rules enforce the configured filesystem boundary. The macOS backend does not provide Linux namespace isolation.
 
-RunBoundary accepts up to **1 GiB of workspace contents** in total and **64 MiB per file**. The limits apply when copying a project and checking retained changes.
+Before copying, RunBoundary checks free space on the temporary workspace volume. The **64 MiB per-file limit** still applies. See [workspace sizing](docs/configuration.md#workspace-size-and-disk-space).
 
 ## 60-second demo
 
