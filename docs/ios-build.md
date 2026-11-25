@@ -40,7 +40,7 @@ a passing full application build has not been established.
 From an initialized project with Xcode explicitly configured:
 
 ```sh
-agentvault ios-build --workspace App.xcworkspace --scheme App \
+runb ios-build --workspace App.xcworkspace --scheme App \
   --simulator-runtime "/Library/Developer/CoreSimulator/Volumes/YOUR_VOLUME/Library/Developer/CoreSimulator/Profiles/Runtimes/iOS YOUR_VERSION.simruntime"
 ```
 
@@ -59,7 +59,7 @@ not opt into TCP listeners.
 To enable the compatibility path for the observed error:
 
 ```sh
-agentvault ios-build --workspace App.xcworkspace --scheme App \
+runb ios-build --workspace App.xcworkspace --scheme App \
   --simulator-runtime "/Library/Developer/CoreSimulator/Volumes/YOUR_VOLUME/Library/Developer/CoreSimulator/Profiles/Runtimes/iOS YOUR_VERSION.simruntime" \
   --allow-compiler-simulator-services
 ```
@@ -119,7 +119,7 @@ paths itself, and independently checks declared inputs. Each strings file is
 limited to 8 MiB within the combined 64 MiB input budget. Version/link operations
 cannot include the companion-strings flag. Compilation must target `Base.lproj`.
 XIB compilation copies its strings immediately. Storyboard intermediates carry
-locale identifiers and strings bytes under `AgentVaultLocalization`, within the
+locale identifiers and strings bytes under `RunBoundaryLocalization`, within the
 artifact size/entry budget. The host rejects raw Apple strings-path manifests
 and malformed/incomplete packages at the link boundary, and generates a fresh
 `StringsFiles.plist` referring only to the new staged bytes. This also preserves

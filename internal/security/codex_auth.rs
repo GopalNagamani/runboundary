@@ -6,7 +6,7 @@ use std::{collections::BTreeMap, ffi::OsStr, os::unix::fs::MetadataExt, path::Pa
 
 pub fn validate_agent(agent: &str) -> Result<()> {
     if Path::new(agent).file_name() != Some(OsStr::new("codex")) {
-        bail!("--codex-auth-file is only supported for Codex");
+        bail!("ChatGPT login options are only supported for Codex");
     }
     Ok(())
 }

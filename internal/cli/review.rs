@@ -9,6 +9,7 @@ use crate::{
 };
 use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -28,7 +29,7 @@ pub fn retain(root: &Path, workspace: PathBuf, baseline: Snapshot) -> Result<Str
         .and_then(|x| x.to_str())
         .ok_or_else(|| anyhow::anyhow!("invalid session path"))?;
     let id = name
-        .strip_prefix("agentvault-work-")
+        .strip_prefix("runboundary-work-")
         .ok_or_else(|| anyhow::anyhow!("invalid session id"))?
         .to_owned();
     let record = Record {
@@ -38,7 +39,7 @@ pub fn retain(root: &Path, workspace: PathBuf, baseline: Snapshot) -> Result<Str
         workspace,
         baseline,
     };
-    let path = PathBuf::from(format!(".agentvault/review-{id}.json"));
+    let path = PathBuf::from(format!(".runboundary/review-{id}.json"));
     root_dir.create(&path, &serde_json::to_vec(&record)?, 0o600)?;
     Ok(id)
 }
@@ -51,15 +52,15 @@ pub(super) fn load(root: &Path, id: &str) -> Result<(Record, std::fs::File)> {
         bail!("invalid session id");
     }
     let dir = Dir::open(root)?;
-    let lock = dir.lock(&PathBuf::from(format!(".agentvault/session-{id}.lock")))?;
-    let record_path = format!(".agentvault/review-{id}.json");
+    let lock = dir.lock(&PathBuf::from(format!(".runboundary/session-{id}.lock")))?;
+    let record_path = format!(".runboundary/review-{id}.json");
     let (bytes, _) = dir
         .read_file(&record_path, 16 * 1024 * 1024)
         .with_context(|| {
             format!(
                 "cannot load pending session {id:?} in project {root:?} from {record_path:?}; \
              an applied session has no pending review record. Check the project and session ID. \
-             For sandbox registration, use a new retained session from agentvault run; \
+             For sandbox registration, use a new retained session from runb run; \
              an old workspace directory alone cannot restore review/apply authorization"
             )
         })?;
@@ -80,9 +81,14 @@ fn validate_workspace(root: &Path, id: &str, workspace: &Path) -> Result<()> {
     let parent = workspace
         .parent()
         .ok_or_else(|| anyhow::anyhow!("missing workspace parent"))?;
+    let parent_name = parent.file_name().and_then(|name| name.to_str());
+    let session_root = parent_name.and_then(|name| {
+        name.strip_prefix("runboundary-work-")
+            .or_else(|| name.strip_prefix("agentvault-work-"))
+    });
     if !workspace.is_absolute()
         || workspace.file_name() != Some(std::ffi::OsStr::new("workspace"))
-        || parent.file_name() != Some(std::ffi::OsStr::new(&format!("agentvault-work-{id}")))
+        || session_root != Some(id)
     {
         bail!("invalid retained workspace location");
     }
@@ -111,18 +117,28 @@ pub fn execute(root: &Path, id: &str, apply: bool, show_diff: bool) -> Result<()
     let dir = Dir::open(root)?;
     let config = Config::load(root)?;
     let matcher = Matcher::new(&config)?;
+    if prepare::snapshot(&dir, &matcher, false)? != record.baseline {
+        bail!("host project changed since preparation; refusing stale review or synchronization");
+    }
     let out = Dir::open(&record.workspace)?;
     let reviewed = prepare::snapshot(&out, &matcher, true)?;
-    for ch in diff::changes(&record.baseline, &reviewed) {
+    let changes = diff::changes(&record.baseline, &reviewed);
+    let mut possible_secrets = false;
+    for ch in &changes {
         println!("{} {:?}", ch.kind, ch.path);
         if show_diff {
             if record.baseline.contains_key(&ch.path) {
-                print_entry("-", &dir, &ch.path, &record.baseline[&ch.path])?;
+                possible_secrets |= print_entry("-", &dir, &ch.path, &record.baseline[&ch.path])?;
             }
             if reviewed.contains_key(&ch.path) {
-                print_entry("+", &out, &ch.path, &reviewed[&ch.path])?;
+                possible_secrets |= print_entry("+", &out, &ch.path, &reviewed[&ch.path])?;
             }
+        } else if apply && reviewed.contains_key(&ch.path) {
+            possible_secrets |= scan_entry(&out, &ch.path, &reviewed[&ch.path])?;
         }
+    }
+    if possible_secrets {
+        println!("Review warning: possible credential-like content was detected. Displayed values are redacted; the scanner is heuristic and may miss secrets.");
     }
     if apply {
         if let Some(recovery) =
@@ -135,35 +151,49 @@ pub fn execute(root: &Path, id: &str, apply: bool, show_diff: bool) -> Result<()
             )?;
             println!("Applied. Recovery originals: {:?}", recovery);
         }
-        dir.remove(&PathBuf::from(format!(".agentvault/review-{id}.json")))?;
+        dir.remove(&PathBuf::from(format!(".runboundary/review-{id}.json")))?;
         println!(
             "Retained workspace remains at {:?}; remove it after review.",
             record.workspace.parent()
         );
     } else {
-        println!("Approve with: agentvault review {id} --apply");
+        println!("Approve with: runb apply {id}");
     }
     Ok(())
 }
-fn print_entry(prefix: &str, dir: &Dir, path: &Path, entry: &prepare::Entry) -> Result<()> {
-    if let Some(target) = &entry.link_target {
-        // Verify identity/type without following; escape target text for terminals.
-        prepare::read_entry(dir, path, entry)?;
-        println!("{prefix} [symlink -> {target:?}]");
-        return Ok(());
+fn scan_entry(dir: &Dir, path: &Path, entry: &prepare::Entry) -> Result<bool> {
+    let (bytes, identity) = prepare::read_entry(dir, path, entry)?;
+    let hash: [u8; 32] = Sha256::digest(&bytes).into();
+    if identity != entry.identity || hash != entry.hash {
+        bail!("file changed while preparing review: {path:?}; restart review");
     }
-    let (bytes, _) = dir.read_file(path, prepare::FILE_LIMIT)?;
+    Ok(crate::security::secret_scan::redact_text(&String::from_utf8_lossy(&bytes)).1)
+}
+fn print_entry(prefix: &str, dir: &Dir, path: &Path, entry: &prepare::Entry) -> Result<bool> {
+    let (bytes, identity) = prepare::read_entry(dir, path, entry)?;
+    let hash: [u8; 32] = Sha256::digest(&bytes).into();
+    if identity != entry.identity || hash != entry.hash {
+        bail!("file changed while preparing review: {path:?}; restart review");
+    }
+    if let Some(target) = &entry.link_target {
+        let (redacted, detected) =
+            crate::security::secret_scan::redact_text(&format!("{target:?}"));
+        println!("{prefix} [symlink -> {}]", redacted.trim_end());
+        return Ok(detected);
+    }
+    let (text, detected) =
+        crate::security::secret_scan::redact_text(&String::from_utf8_lossy(&bytes));
     if bytes.len() > 64 * 1024 {
         println!("{prefix} [file exceeds 64 KiB preview limit]");
-        return Ok(());
+        return Ok(detected);
     }
     match std::str::from_utf8(&bytes) {
-        Ok(text) => {
+        Ok(_) => {
             for line in text.lines() {
                 println!("{prefix} {}", serde_json::to_string(line)?);
             }
         }
         Err(_) => println!("{prefix} [binary file]"),
     }
-    Ok(())
+    Ok(detected)
 }

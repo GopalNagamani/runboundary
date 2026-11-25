@@ -3,7 +3,7 @@
 set -euo pipefail
 umask 077
 repo_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-vm_name=agentvault-security-check
+vm_name=runboundary-security-check
 reuse=false
 case "${1:-}" in
   '') ;;
@@ -24,7 +24,7 @@ else
 fi
 multipass exec "$vm_name" -- cloud-init status --wait
 
-task_tmp=$(mktemp -d "${TMPDIR:-/tmp}/agentvault-vm.XXXXXX")
+task_tmp=$(mktemp -d "${TMPDIR:-/tmp}/runboundary-vm.XXXXXX")
 trap 'rm -rf -- "$task_tmp"' EXIT
 # Transfer only the build/test source trees. Never mount a Mac directory.
 COPYFILE_DISABLE=1 tar -czf "$task_tmp/source.tar.gz" -C "$repo_dir" \
@@ -33,8 +33,8 @@ cat > "$task_tmp/check.sh" <<'GUEST'
 #!/usr/bin/env bash
 set -euo pipefail
 umask 077
-exec > >(tee "$HOME/agentvault-test.log") 2>&1
-printf 'AgentVault Multipass validation: %s\n' "$(date -u)"
+exec > >(tee "$HOME/runboundary-test.log") 2>&1
+printf 'RunBoundary Multipass validation: %s\n' "$(date -u)"
 if [ "$(id -u)" -eq 0 ]; then
   echo 'Refusing to run security tests as root.'
   exit 1
@@ -46,8 +46,8 @@ sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y \
   build-essential pkg-config curl ca-certificates bubblewrap python3 nodejs
 if [ ! -x "$HOME/.cargo/bin/cargo" ]; then
   curl --proto '=https' --tlsv1.2 --fail --show-error --location \
-    https://sh.rustup.rs -o /tmp/agentvault-rustup.sh
-  sh /tmp/agentvault-rustup.sh -y --no-modify-path --profile minimal \
+    https://sh.rustup.rs -o /tmp/runboundary-rustup.sh
+  sh /tmp/runboundary-rustup.sh -y --no-modify-path --profile minimal \
     --component rustfmt --component clippy
 fi
 export PATH="$HOME/.cargo/bin:$PATH"
@@ -62,12 +62,27 @@ printf '\nRead-only namespace diagnostics (missing keys are reported, not change
 for setting in user.max_user_namespaces kernel.unprivileged_userns_clone kernel.apparmor_restrict_unprivileged_userns; do
   sysctl "$setting" || true
 done
-mkdir -p "$HOME/agentvault-source"
+mkdir -p "$HOME/runboundary-source"
+# Keep repeated --reuse runs within the VM's 10 GiB disk. These target
+# directories are Cargo artifacts from this script's own retained source copies;
+# keep the sources and per-run log, but rebuild artifacts for the current run.
+for old_target in "$HOME"/runboundary-source/run.*/target; do
+  if [ -d "$old_target" ]; then
+    rm -rf -- "$old_target"
+  fi
+done
 # A fresh per-run directory avoids stale build source on explicit --reuse.
-source_dir=$(mktemp -d "$HOME/agentvault-source/run.XXXXXX")
-tar -xzf /tmp/agentvault-source.tar.gz -C "$source_dir"
+source_dir=$(mktemp -d "$HOME/runboundary-source/run.XXXXXX")
+tar -xzf /tmp/runboundary-source.tar.gz -C "$source_dir"
 cd "$source_dir"
 printf '\nCopied source directory: %s\n' "$source_dir"
+# Rust debug info and incremental state are unnecessary for this validation
+# and otherwise accumulate quickly on the small dedicated VM disk.
+export CARGO_PROFILE_DEV_DEBUG=0
+export CARGO_PROFILE_TEST_DEBUG=0
+export CARGO_INCREMENTAL=0
+export CARGO_BUILD_JOBS=2
+df -h .
 failures=0
 check() {
   printf '\nRUNNING:'
@@ -92,16 +107,16 @@ if [ "$failures" -ne 0 ]; then
   exit 1
 fi
 GUEST
-multipass transfer "$task_tmp/source.tar.gz" "$vm_name:/tmp/agentvault-source.tar.gz"
-multipass transfer "$task_tmp/check.sh" "$vm_name:/tmp/agentvault-check.sh"
+multipass transfer "$task_tmp/source.tar.gz" "$vm_name:/tmp/runboundary-source.tar.gz"
+multipass transfer "$task_tmp/check.sh" "$vm_name:/tmp/runboundary-check.sh"
 status=0
-multipass exec "$vm_name" -- bash /tmp/agentvault-check.sh || status=$?
+multipass exec "$vm_name" -- bash /tmp/runboundary-check.sh || status=$?
 mkdir -p "$repo_dir/test-results"
 report="$repo_dir/test-results/multipass-$(date -u +%Y%m%dT%H%M%SZ).log"
-if multipass transfer "$vm_name:/home/ubuntu/agentvault-test.log" "$report"; then
+if multipass transfer "$vm_name:/home/ubuntu/runboundary-test.log" "$report"; then
   printf '\nTest report: %s\n' "$report"
 else
-  printf '\nCould not retrieve the report; inspect /home/ubuntu/agentvault-test.log inside the VM.\n' >&2
+  printf '\nCould not retrieve the report; inspect /home/ubuntu/runboundary-test.log inside the VM.\n' >&2
   status=1
 fi
 printf 'VM retained for investigation: %s\n' "$vm_name"

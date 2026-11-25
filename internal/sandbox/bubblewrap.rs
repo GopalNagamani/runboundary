@@ -47,7 +47,7 @@ pub fn command_with_roots(
         "--cap-drop",
         "ALL",
         "--hostname",
-        "agentvault",
+        "runboundary",
     ]);
     mounts::configure(&mut c, root)?;
     c.args([
@@ -90,7 +90,7 @@ pub fn probe_with_roots(
     // Host path passed positionally, never interpolated as shell code.
     let script = r#"
 set -eu
-fail() { printf 'AgentVault isolation check failed: %s\n' "$1" >&2; exit 1; }
+fail() { printf 'RunBoundary isolation check failed: %s\n' "$1" >&2; exit 1; }
 [ "$HOME" = /home/agent ] || fail private-home-location
 [ ! -e "$1" ] || fail original-project-hidden
 [ ! -e /root/.ssh/id_rsa ] || fail host-ssh-key-hidden
@@ -103,16 +103,16 @@ fail() { printf 'AgentVault isolation check failed: %s\n' "$1" >&2; exit 1; }
 [ -z "${LD_PRELOAD+x}" ] || fail loader-environment-filtered
 grep -q '^NoNewPrivs:[[:space:]]*1' /proc/self/status || fail no-new-privileges
 grep -q '^CapEff:[[:space:]]*0000000000000000' /proc/self/status || fail capabilities-dropped
-printf probe > /workspace/.agentvault-probe || fail workspace-writable
-rm /workspace/.agentvault-probe || fail workspace-cleanup
+printf probe > /workspace/.runboundary-probe || fail workspace-writable
+rm /workspace/.runboundary-probe || fail workspace-cleanup
 printf probe > "$HOME/probe" || fail private-home-writable
 rm "$HOME/probe" || fail private-home-cleanup
-printf AGENTVAULT_PROBE_OK
+printf RUNBOUNDARY_PROBE_OK
 "#;
     let args = vec![
         "-c".into(),
         script.into(),
-        "agentvault-probe".into(),
+        "runboundary-probe".into(),
         root.to_string_lossy().into_owned(),
     ];
     // Local isolation checks need no provider credential. Keep all other
@@ -125,7 +125,7 @@ printf AGENTVAULT_PROBE_OK
         .context(
             "sandbox process could not start; executable startup or pre-exec hardening failed",
         )?;
-    if !output.status.success() || output.stdout != b"AGENTVAULT_PROBE_OK" {
+    if !output.status.success() || output.stdout != b"RUNBOUNDARY_PROBE_OK" {
         let diagnostic = backend_diagnostic(&output.stderr, env);
         bail!("sandbox startup or isolation probe failed (status {}); backend diagnostic: {}. Required controls remain enabled. No agent launched",output.status,diagnostic);
     }

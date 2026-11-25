@@ -1,4 +1,4 @@
-// Test-only private API client. Never linked into AgentVault or shipped as a broker.
+// Test-only private API client. Never linked into RunBoundary or shipped as a broker.
 #import <Foundation/Foundation.h>
 #import <objc/runtime.h>
 #include <dlfcn.h>

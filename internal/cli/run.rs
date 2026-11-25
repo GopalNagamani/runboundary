@@ -5,6 +5,7 @@ use crate::{
     workspace::{diff, prepare, sync},
 };
 use anyhow::{bail, Context, Result};
+use sha2::{Digest, Sha256};
 use std::path::Path;
 pub fn execute(
     root: &Path,
@@ -13,12 +14,38 @@ pub fn execute(
     agent: &[String],
     auth_file: Option<&Path>,
 ) -> Result<i32> {
+    execute_with_adapter(root, apply, auth, agent, auth_file, None)
+}
+pub fn execute_with_adapter(
+    root: &Path,
+    apply: bool,
+    auth: &[String],
+    agent: &[String],
+    auth_file: Option<&Path>,
+    adapter_file: Option<&Path>,
+) -> Result<i32> {
+    if adapter_file.is_some() && (auth_file.is_some() || !auth.is_empty()) {
+        bail!("authentication modes conflict");
+    }
+    let adapter = adapter_file
+        .map(|p| {
+            crate::security::auth_adapter::Adapter::load(
+                p,
+                agent.first().context("missing agent executable")?,
+            )
+        })
+        .transpose()?;
     let config = Config::load(root)?;
     let backend = Backend::select(root, &config)?;
     let matcher = Matcher::new(&config)?;
-    let exe = backend.resolve(agent.first().context("missing agent executable")?)?;
+    let requested = agent.first().context("missing agent executable")?;
+    let exe = backend.resolve(requested).with_context(|| {
+        if Path::new(requested).file_name().is_some_and(|n| n == "hermes") {
+            "Hermes runtime unavailable in approved installations; its login adapter does not approve ~/.local/bin, ~/.hermes/hermes-agent, or the bundled Python runtime"
+        } else { "agent executable unavailable in approved runtimes" }
+    })?;
     println!(
-        "AgentVault v{}\n\nPreparing isolated workspace...",
+        "RunBoundary v{}\n\nPreparing isolated workspace...",
         env!("CARGO_PKG_VERSION")
     );
     let dir = Dir::open(root)?;
@@ -32,6 +59,9 @@ pub fn execute(
     let mut env = backend.environment(&config, auth, work.path())?;
     if auth_file.is_some() {
         crate::security::codex_auth::configure(&mut env);
+    }
+    if let Some(adapter) = &adapter {
+        adapter.configure(&mut env);
     }
     let (entrypoint, arguments) = process::agent_entrypoint_with_auth(
         &agent[0],
@@ -50,6 +80,21 @@ pub fn execute(
         println!("Applying security policy...\nVerifying filesystem isolation...");
         backend.probe(root, work.path(), &env)?;
         audit::log(root, "isolation_probe_passed", backend.name())?;
+        if let Some(adapter) = &adapter {
+            adapter.import(
+                &work
+                    .path()
+                    .parent()
+                    .context("missing session parent")?
+                    .join("sandbox-home"),
+            )?;
+            audit::log(
+                root,
+                "adapter_files_imported",
+                "explicit adapter file approval; private copies discarded after session",
+            )?;
+            println!("Approved adapter files copied into disposable home.");
+        }
         if let Some(source) = auth_file {
             let home = work
                 .path()
@@ -109,8 +154,21 @@ pub fn execute(
         };
         let changes = diff::changes(&work.baseline, &after);
         println!("\nChange summary (content is not printed):");
+        let mut possible_secrets = false;
         for ch in &changes {
             println!("  {} {:?}", ch.kind, ch.path);
+            if let Some(entry) = after.get(&ch.path) {
+                let (bytes, identity) = prepare::read_entry(&out, &ch.path, entry)?;
+                let hash: [u8; 32] = Sha256::digest(&bytes).into();
+                if identity != entry.identity || hash != entry.hash {
+                    bail!("file changed during secret scan: {:?}", ch.path);
+                }
+                possible_secrets |=
+                    crate::security::secret_scan::redact_text(&String::from_utf8_lossy(&bytes)).1;
+            }
+        }
+        if possible_secrets {
+            println!("Review warning: possible credential-like content was detected in changed files; use `runb diff SESSION` to inspect redacted content. The scanner is heuristic and may miss secrets.");
         }
         if changes.is_empty() {
             println!("No file changes.");
@@ -140,9 +198,9 @@ pub fn execute(
                 "Changes retained at {:?}. Host files were not modified.",
                 workspace
             );
-            println!("Preview: agentvault preview {id} -- COMMAND [ARGS...]");
-            println!("Review: agentvault review {id} --diff");
-            println!("Approve: agentvault review {id} --apply");
+            println!("Preview: runb preview {id} COMMAND [ARGS...]");
+            println!("Review: runb diff {id}");
+            println!("Approve: runb apply {id}");
             audit::log(
                 root,
                 "workspace_retained",

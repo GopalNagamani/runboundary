@@ -1,4 +1,5 @@
 pub mod audit;
+pub mod auth;
 pub mod doctor;
 pub mod init;
 pub mod ios_build;
@@ -12,9 +13,10 @@ use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 #[derive(Parser)]
 #[command(
+    name = "runb",
     version,
     about = "Fail-closed Linux and macOS filesystem sandbox for coding agents",
-    after_help = "Getting started (run from your project's directory):\n  agentvault init\n  agentvault doctor\n\nDiscover commands:\n  agentvault help run\n  agentvault help preview\n  agentvault help review\n  agentvault help xcode-register\n\nEach command also accepts --help. Run prints the retained session ID and next steps.\nUse --project PATH when running from another directory."
+    after_help = "Getting started (run from your project's directory):\n  runb init\n  runb doctor\n\nDiscover commands:\n  runb help run\n  runb help preview\n  runb help review\n  runb help xcode-register\n\nEach command also accepts --help. Run prints the retained session ID and next steps.\nUse --project PATH when running from another directory."
 )]
 pub struct Cli {
     #[arg(long, global = true, default_value = ".")]
@@ -24,6 +26,11 @@ pub struct Cli {
 }
 #[derive(Subcommand)]
 pub enum Commands {
+    /// Save or remove explicit login adapter approval.
+    Auth {
+        #[command(subcommand)]
+        command: auth::AuthCommand,
+    },
     /// Experimental unsigned Simulator build with constrained IB and asset compiler IPC.
     IosBuild {
         /// Pending session; omit to build a fresh filtered copy of the project.
@@ -55,7 +62,7 @@ pub enum Commands {
     },
     /// Experimental: compile one retained XIB through a separate, constrained compiler sandbox.
     #[command(
-        after_help = "Requires a pending AgentVault session, configured Xcode toolchain, and an explicitly approved installed Simulator runtime. Output must be a new workspace-relative .nib path with an existing parent. Only the isolated compiler receives the launch-helper connection. This does not integrate xcodebuild/storyboards or certify all Simulator service operations."
+        after_help = "Requires a pending RunBoundary session, configured Xcode toolchain, and an explicitly approved installed Simulator runtime. Output must be a new workspace-relative .nib path with an existing parent. Only the isolated compiler receives the launch-helper connection. This does not integrate xcodebuild/storyboards or certify all Simulator service operations."
     )]
     XibCompile {
         session: String,
@@ -78,13 +85,25 @@ pub enum Commands {
     },
     /// Probe platform sandbox controls, runtime availability, and authentication setup.
     Doctor {
-        #[arg(long, default_value = "codex")]
-        agent: String,
+        /// Agent executable to check (defaults to codex).
+        agent: Option<String>,
+        /// Specify the agent by flag instead of position.
+        #[arg(long = "agent", conflicts_with = "agent")]
+        agent_option: Option<String>,
         #[arg(long)]
         auth_env: Vec<String>,
+        /// Explicitly approve the file-backed ChatGPT login at ~/.codex/auth.json.
+        #[arg(long, conflicts_with_all = ["auth_env", "codex_auth_file", "auth_adapter"])]
+        chatgpt: bool,
         /// Explicitly approve a file-backed Codex ChatGPT login (never a whole directory).
         #[arg(long, conflicts_with = "auth_env")]
         codex_auth_file: Option<PathBuf>,
+        /// Explicit private manifest mapping agent login/cache files into disposable HOME.
+        #[arg(long, conflicts_with_all = ["codex_auth_file", "auth_env"])]
+        auth_adapter: Option<PathBuf>,
+        /// Ignore a previously approved adapter for this invocation.
+        #[arg(long, conflicts_with = "auth_adapter")]
+        no_saved_auth: bool,
     },
     /// Run an agent in a copied workspace with mandatory platform isolation.
     Run {
@@ -94,12 +113,25 @@ pub enum Commands {
         /// Approve ONLY a named provider API key from the host environment.
         #[arg(long)]
         auth_env: Vec<String>,
+        /// Explicitly approve the file-backed ChatGPT login at ~/.codex/auth.json.
+        #[arg(long, conflicts_with_all = ["auth_env", "codex_auth_file", "auth_adapter"])]
+        chatgpt: bool,
         /// Explicitly approve a file-backed Codex ChatGPT login (never a whole directory).
         #[arg(long, conflicts_with = "auth_env")]
         codex_auth_file: Option<PathBuf>,
-        #[arg(required = true, last = true)]
+        /// Explicit private manifest mapping agent login/cache files into disposable HOME.
+        #[arg(long, conflicts_with_all = ["codex_auth_file", "auth_env"])]
+        auth_adapter: Option<PathBuf>,
+        /// Ignore a previously approved adapter for this invocation.
+        #[arg(long, conflicts_with = "auth_adapter")]
+        no_saved_auth: bool,
+        #[arg(required = true, trailing_var_arg = true)]
         agent: Vec<String>,
     },
+    /// Show the changes in a retained session.
+    Diff { session: String },
+    /// Explicitly apply a retained session to the original project.
+    Apply { session: String },
     /// Review a retained session and explicitly approve synchronization.
     Review {
         session: String,
@@ -109,9 +141,14 @@ pub enum Commands {
         #[arg(long, visible_alias = "review")]
         diff: bool,
     },
+    /// Safely restore the original project state after an interrupted apply.
+    Recover {
+        /// Recovery directory printed by review/apply (basename or direct project path).
+        recovery_dir: PathBuf,
+    },
     /// Register files in a retained Xcode project's navigator (no target membership).
     #[command(
-        after_help = "Examples (from the original project's directory):\n  agentvault xcode-register SESSION --xcode-project App.xcodeproj -- output.txt\n  agentvault xcode-register SESSION --xcode-project App.xcodeproj --new-files\n\nClose Xcode before editing its project metadata. Use a pending AgentVault session ID,\nnot a Codex conversation ID. Register before review --apply; approval closes the session.\nRegistration changes only the retained copy's navigator references, not target membership."
+        after_help = "Examples (from the original project's directory):\n  runb xcode-register SESSION --xcode-project App.xcodeproj -- output.txt\n  runb xcode-register SESSION --xcode-project App.xcodeproj --new-files\n\nClose Xcode before editing its project metadata. Use a pending RunBoundary session ID,\nnot a Codex conversation ID. Register before review --apply; approval closes the session.\nRegistration changes only the retained copy's navigator references, not target membership."
     )]
     XcodeRegister {
         session: String,
@@ -126,7 +163,7 @@ pub enum Commands {
     },
     /// Run or test retained changes inside the sandbox before approving them.
     #[command(
-        after_help = "Examples (from the original project's directory):\n  agentvault preview SESSION -- npm test\n  agentvault preview SESSION -- cargo test\n  agentvault preview SESSION --allow-network-listen --port 5173 -- npm run dev -- --host 127.0.0.1 --port 5173\n\nUse the AgentVault session ID printed after run. Preview does not apply changes.\nNetwork listener approval is explicit; --port does not enforce a firewall rule."
+        after_help = "Examples (from the original project's directory):\n  runb preview SESSION npm test\n  runb preview SESSION cargo test\n  runb preview SESSION --allow-network-listen --port 5173 npm run dev -- --host 127.0.0.1 --port 5173\n\nUse the RunBoundary session ID printed after run. Preview does not apply changes.\nNetwork listener approval is explicit; --port does not enforce a firewall rule."
     )]
     Preview {
         session: String,
@@ -136,7 +173,7 @@ pub enum Commands {
         /// Permit TCP listeners; Seatbelt cannot confine them to loopback/selected ports.
         #[arg(long)]
         allow_network_listen: bool,
-        #[arg(required = true, last = true)]
+        #[arg(required = true, trailing_var_arg = true)]
         command: Vec<String>,
     },
     /// Inspect project/toolchain configuration; optionally run sandboxed version checks.
@@ -148,6 +185,10 @@ pub enum Commands {
     Audit,
 }
 pub fn execute(cli: Cli) -> anyhow::Result<i32> {
+    if let Commands::Auth { command } = &cli.command {
+        auth::execute(command)?;
+        return Ok(0);
+    }
     if let Commands::IbtoolClient { bridge, arguments } = &cli.command {
         return crate::ib_bridge::client::execute(bridge, arguments);
     }
@@ -159,7 +200,10 @@ pub fn execute(cli: Cli) -> anyhow::Result<i32> {
         &cli.command,
         Commands::Run { .. }
             | Commands::Doctor { .. }
+            | Commands::Diff { .. }
+            | Commands::Apply { .. }
             | Commands::Review { .. }
+            | Commands::Recover { .. }
             | Commands::Preview { .. }
             | Commands::Tools { .. }
             | Commands::XcodeRegister { .. }
@@ -189,7 +233,7 @@ fn execute_inner(cli: Cli) -> anyhow::Result<i32> {
             &simulator_runtime,
             allow_compiler_simulator_services,
         ),
-        Commands::IbtoolClient { .. } | Commands::ActoolClient { .. } => {
+        Commands::Auth { .. } | Commands::IbtoolClient { .. } | Commands::ActoolClient { .. } => {
             unreachable!("internal client dispatch occurs before project access")
         }
         Commands::XibCompile {
@@ -214,24 +258,90 @@ fn execute_inner(cli: Cli) -> anyhow::Result<i32> {
         }
         Commands::Doctor {
             agent,
+            agent_option,
             auth_env,
+            chatgpt,
             codex_auth_file,
+            auth_adapter,
+            no_saved_auth,
         } => {
-            doctor::execute(&root, &agent, &auth_env, codex_auth_file.as_deref())?;
+            let agent = agent.or(agent_option).unwrap_or_else(|| "codex".into());
+            let codex_auth_file = auth::codex_file(&agent, chatgpt, codex_auth_file)?;
+            let auth_adapter = auth::selected(
+                &agent,
+                auth_adapter,
+                codex_auth_file.is_some() || !auth_env.is_empty(),
+                no_saved_auth,
+            )?;
+            doctor::execute_with_adapter(
+                &root,
+                &agent,
+                &auth_env,
+                codex_auth_file.as_deref(),
+                auth_adapter.as_deref(),
+            )?;
             Ok(0)
         }
         Commands::Run {
             apply,
             auth_env,
+            chatgpt,
             codex_auth_file,
+            auth_adapter,
+            no_saved_auth,
             agent,
-        } => run::execute(&root, apply, &auth_env, &agent, codex_auth_file.as_deref()),
+        } => {
+            let executable = agent
+                .first()
+                .ok_or_else(|| anyhow::anyhow!("missing agent"))?;
+            let codex_auth_file = auth::codex_file(executable, chatgpt, codex_auth_file)?;
+            let auth_adapter = auth::selected(
+                executable,
+                auth_adapter,
+                codex_auth_file.is_some() || !auth_env.is_empty(),
+                no_saved_auth,
+            )?;
+            run::execute_with_adapter(
+                &root,
+                apply,
+                &auth_env,
+                &agent,
+                codex_auth_file.as_deref(),
+                auth_adapter.as_deref(),
+            )
+        }
+        Commands::Diff { session } => {
+            review::execute(&root, &session, false, true)?;
+            Ok(0)
+        }
+        Commands::Apply { session } => {
+            review::execute(&root, &session, true, false)?;
+            Ok(0)
+        }
         Commands::Review {
             session,
             apply,
             diff,
         } => {
             review::execute(&root, &session, apply, diff)?;
+            Ok(0)
+        }
+        Commands::Recover { recovery_dir } => {
+            let dir = crate::security::paths::Dir::open(&root)?;
+            let config = crate::policy::config::Config::load(&root)?;
+            let matcher = crate::policy::matcher::Matcher::new(&config)?;
+            if crate::workspace::sync::recover(&root, &dir, &recovery_dir, &matcher)? {
+                crate::security::audit::log(
+                    &root,
+                    "sync_recovered",
+                    "restored pre-apply project state from a validated recovery journal",
+                )?;
+                println!("Recovered project files from {:?}.", recovery_dir);
+            } else {
+                println!(
+                    "Recovery journal is already complete or recovered; no project files changed."
+                );
+            }
             Ok(0)
         }
         Commands::Preview {

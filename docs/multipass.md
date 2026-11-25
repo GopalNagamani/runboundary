@@ -1,17 +1,17 @@
 # Test the real Linux sandbox using Multipass
 
-Multipass runs an Ubuntu virtual machine on your Mac. AgentVault's Bubblewrap
+Multipass runs an Ubuntu virtual machine on your Mac. RunBoundary's Bubblewrap
 sandbox runs inside that Linux VM. This guide tests the Linux backend. For the separate native macOS backend,
 use the [macOS guide](macos.md).
 
 From your Mac's Terminal:
 
 ```sh
-cd /Users/hariprakashb/Desktop/agentvault
+cd /path/to/your/runboundary/checkout
 bash scripts/test-multipass.sh
 ```
 
-The script creates `agentvault-security-check` using Ubuntu 24.04, 2 CPUs,
+The script creates `runboundary-security-check` using Ubuntu 24.04, 2 CPUs,
 2 GiB RAM, and a 10 GiB virtual disk. It downloads Ubuntu, Linux packages, Rust,
 and Cargo dependencies, so first setup can take several minutes. No Rust
 installation is needed on the Mac to run this script.
@@ -42,7 +42,7 @@ Historical reports copied to the Mac have timestamped filenames.
 Stop the VM to release its running resources:
 
 ```sh
-multipass stop agentvault-security-check
+multipass stop runboundary-security-check
 ```
 
 If `multipass socket access denied` occurs, VM work has not started from that
@@ -60,6 +60,55 @@ Live authenticated Codex/Claude sessions have not been tested.
 References: [launch](https://canonical.com/multipass/docs/latest/reference/command-line-interface/launch/),
 [transfer](https://canonical.com/multipass/docs/latest/reference/command-line-interface/transfer/),
 [exec](https://canonical.com/multipass/docs/latest/reference/command-line-interface/exec/).
+
+## Live Codex smoke test with ChatGPT sign-in
+
+Use ChatGPT sign-in for this project's manual Linux smoke test. The workflow
+uses a guest-local Codex login approved through `--codex-auth-file`. An OpenAI
+API key is unnecessary.
+
+In the Ubuntu guest, use the installed RunBoundary and system-installed Codex
+CLI. If you need to sign in, enable device code login in your ChatGPT security
+settings or through your workspace admin, then run this command and follow
+its browser instructions. [Codex headless sign-in](https://learn.chatgpt.com/docs/auth#login-on-headless-devices)
+
+```sh
+codex -c 'cli_auth_credentials_store="file"' login --device-auth
+```
+
+With the default Codex home, the login file is `$HOME/.codex/auth.json`. Keep
+it outside the project with permissions `0600`. Then create a throwaway
+project and run the local checks followed by a live Codex session.
+
+```sh
+project=$(mktemp -d "$HOME/runboundary-smoke.XXXXXX")
+cd "$project"
+printf 'hello from Linux\n' > greeting.txt
+runb init
+runb doctor --chatgpt
+runb run --chatgpt codex
+```
+
+Ask Codex to replace the contents of `greeting.txt` with `edited by Codex on
+Linux`, followed by a newline. Exit Codex and use the session ID printed by
+RunBoundary in place of `SESSION_ID`.
+
+```sh
+cat greeting.txt
+runb diff SESSION_ID
+```
+
+The original should still read `hello from Linux`. If the diff shows the
+expected one-line replacement, apply it and check the original again.
+
+```sh
+runb apply SESSION_ID
+cat greeting.txt
+```
+
+The final output should read `edited by Codex on Linux`. A completed edit
+verifies live provider access for the tested session. `doctor` verifies the
+local sandbox and credential file. See the [credential handling notes](../README.md#codex-with-your-chatgpt-login).
 
 ## Investigating UID-map permission failures
 
@@ -85,7 +134,7 @@ kernel denial events using passwordless sudo in the VM. No packages, profiles,
 sysctls, or sandbox flags are changed. Root access is used only to read profile
 and audit information. The report is copied into `test-results/`.
 
-A successful minimal diagnostic is not a passing AgentVault security suite.
+A successful minimal diagnostic is not a passing RunBoundary security suite.
 Neither the direct launch nor the comparison disables the agent sandbox or
 requests an unsandboxed agent launch. Do not disable the system-wide AppArmor
 restriction or make Bubblewrap setuid to force the tests to pass.
@@ -103,7 +152,7 @@ is installed or loaded. Both direct and pre-exec-no_new_privs launches fail.
 Kernel audit records show transition from `unconfined` into
 `unprivileged_userns`, then denial of Bubblewrap's writes to `proc/.../uid_map`.
 This establishes the current VM prerequisite failure; it is not evidence of
-an AgentVault filesystem escape.
+an RunBoundary filesystem escape.
 
 Run this explicit administrator setup from the Mac's Terminal, followed by
 another real test run:
@@ -112,23 +161,23 @@ another real test run:
 bash scripts/configure-multipass-apparmor.sh && bash scripts/test-multipass.sh --reuse
 ```
 
-The setup operates only in `agentvault-security-check` and only on Ubuntu
+The setup operates only in `runboundary-security-check` and only on Ubuntu
 24.04 with the global restriction enabled. It downloads the AppArmor project's
 purpose-built helper/child policy at fixed commit
 `1979af7710d0f38db6680bd7c19c80902f11f969`, checks SHA-256
 `634d3d3427c483f123cb5ed53b71ea13040187e07d9f67ca74421d42a6170f0e`, and compiles
 against the VM's AppArmor 4.0 ABI before loading it. The profile is saved as
-`/etc/apparmor.d/agentvault-bwrap`. A different existing file or already-loaded
+`/etc/apparmor.d/runboundary-bwrap`. A different existing file or already-loaded
 conflicting profile causes refusal. An identical previously installed copy
 can be reloaded. Setup reports are copied into `test-results/`.
 
 This is an explicit VM security-policy change: it grants the Bubblewrap helper
 permissions needed for namespace setup, then stacks a child profile that
 denies capabilities. It applies to every `/usr/bin/bwrap` invocation in this
-VM, not exclusively AgentVault. Use the dedicated test VM; do not copy the
+VM, not exclusively RunBoundary. Use the dedicated test VM; do not copy the
 setup blindly to machines running other workloads. It does not grant host
 root privileges, make Bubblewrap setuid, disable AppArmor, or change sysctls.
-AgentVault still requests mandatory namespaces, nested-user-namespace
+RunBoundary still requests mandatory namespaces, nested-user-namespace
 restrictions, capability dropping, descriptor closure, and no_new_privs.
 
 Source: [AppArmor 4.0-compatible upstream profile](https://gitlab.com/apparmor/apparmor/-/blob/1979af7710d0f38db6680bd7c19c80902f11f969/profiles/apparmor/profiles/extras/bwrap-userns-restrict),
@@ -140,7 +189,7 @@ To undo only this setup inside the dedicated VM, unload its profiles and then
 remove its file (the second operation runs only if unloading succeeds):
 
 ```sh
-multipass exec agentvault-security-check -- sh -c 'sudo apparmor_parser --remove /etc/apparmor.d/agentvault-bwrap && sudo rm -- /etc/apparmor.d/agentvault-bwrap'
+multipass exec runboundary-security-check -- sh -c 'sudo apparmor_parser --remove /etc/apparmor.d/runboundary-bwrap && sudo rm -- /etc/apparmor.d/runboundary-bwrap'
 ```
 
 After removal, namespace setup may again be refused under Ubuntu's default

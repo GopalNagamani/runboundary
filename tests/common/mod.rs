@@ -1,5 +1,5 @@
 #![allow(dead_code)]
-use agentvault::{
+use runboundary::{
     policy::{config::Config, matcher::Matcher},
     sandbox::{bubblewrap, mounts},
     security::{environment, paths::Dir},
@@ -15,7 +15,7 @@ pub struct Fixture {
 }
 impl Fixture {
     pub fn new() -> Self {
-        agentvault::platform::linux::require().expect("security tests require unprivileged Linux; they must not silently pass unsupported hosts");
+        runboundary::platform::linux::require().expect("security tests require unprivileged Linux; they must not silently pass unsupported hosts");
         let host_canaries = tempfile::tempdir().unwrap();
         for dir in [".ssh", ".aws"] {
             std::fs::create_dir(host_canaries.path().join(dir)).unwrap();

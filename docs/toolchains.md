@@ -1,6 +1,6 @@
 # Toolchains and non-web projects
 
-AgentVault previews execute commands, not just web servers. Command-line tools,
+RunBoundary previews execute commands, not just web servers. Command-line tools,
 libraries, tests, headless desktop builds and mobile source/build commands use the
 same copied-workspace and explicit-approval workflow. SDK exposure is implemented;
 full Android/iOS builds have not been certified. Emulator/Simulator services,
@@ -9,7 +9,7 @@ Windows remains unsupported.
 
 ## Configure only what you need
 
-Add selected entries to the existing `agentvault.yaml`; do not replace its
+Add selected entries to the existing `runboundary.yaml`; do not replace its
 security policy. Paths must be literal absolute paths (no `~` or `$HOME`). These
 are examples, not automatic discovery. SDKs must be installed and initialized
 before launch. Changing this protected host configuration is developer approval
@@ -51,9 +51,11 @@ secret-free. Credentials in sibling home directories are not imported.
 
 ## Check actual sandbox availability
 
+From the project root:
+
 ```sh
-agentvault --project /path/to/project tools
-agentvault --project /path/to/project tools --check
+runb tools
+runb tools --check
 ```
 
 `tools` identifies manifest filenames without reading their contents and validates
@@ -72,20 +74,20 @@ provider credentials. Checks can be interrupted with Ctrl-C.
 
 ## Preview project scripts and tests
 
-Use the retained AgentVault session ID printed after the agent exits.
+Use the retained RunBoundary session ID printed after the agent exits.
 A name starting `./` runs an executable regular file from the isolated workspace:
 
 ```sh
-agentvault --project /path/to/project preview SESSION -- ./gradlew --no-daemon test
-agentvault --project /path/to/project preview SESSION -- ./mvnw test
-agentvault --project /path/to/project preview SESSION -- ./scripts/test.sh
+runb preview SESSION ./gradlew --no-daemon test
+runb preview SESSION ./mvnw test
+runb preview SESSION ./scripts/test.sh
 ```
 
 Scripts need owner execute permission in the original project (`chmod u+x gradlew`
 before creating the session). Binary executables in the workspace are supported
 too. Parent traversal, symlink executables and symlink parent directories are
 refused. For a non-executable script, explicitly run the trusted interpreter:
-`preview SESSION -- sh ./gradlew --no-daemon test`.
+`runb preview SESSION sh ./gradlew --no-daemon test`.
 Arguments are passed as arguments, not interpolated as shell code. Workspace
 programs are launched only inside the sandbox through a trusted shell.
 A project program needing several commands can be invoked through `sh -c` with
@@ -117,24 +119,24 @@ successful license, framework-loading or workspace-discovery check does not
 validate Interface Builder compilation, even with `CODE_SIGNING_ALLOWED=NO`.
 
 ```sh
-agentvault --project /path/to/project preview SESSION -- sh -c \
+runb preview SESSION sh -c \
   'xcodebuild -scheme YOUR_SCHEME -sdk iphonesimulator -derivedDataPath "$HOME/build/DerivedData" CODE_SIGNING_ALLOWED=NO build'
 ```
 
 The Android/iOS commands are starting points from the official tool workflows,
 not certification that every project works in this policy. Install required
-Android platforms/build-tools and accept licenses outside AgentVault; SDK writes
+Android platforms/build-tools and accept licenses outside RunBoundary; SDK writes
 are denied, including automatic installation of missing components. iOS build
 helpers may need additional narrowly justified platform work that is not yet
 implemented. No blanket Mach-service, Keychain, host Library, or home grant is
 added for compatibility. Xcode's `DEVELOPER_DIR` is set from the approved bundle;
-AgentVault does not run `sudo xcode-select` or change host settings.
+RunBoundary does not run `sudo xcode-select` or change host settings.
 
 Supporting this requires a separately designed and tested Simulator integration.
 Simply adding host CoreSimulator Mach endpoints and device directories would
 cross the current service boundary. An integration must account for host-service
 file access, helper execution, device data and whether work can escape the agent's
-restrictions. Current AgentVault does not offer a verified configuration for that
+restrictions. Current RunBoundary does not offer a verified configuration for that
 workflow. Changing to a physical-device SDK is not a verified workaround for
 Interface Builder's runtime dependencies.
 
@@ -144,7 +146,7 @@ This permits TCP listeners without loopback/port confinement; configure tools
 for loopback and do not assume the OS enforces that address. Linux shares the
 host network. A host adb server or other service can be reachable via networking;
 absence of a device integration is not network isolation from those services.
-AgentVault does not import adb keys, host AVDs, Simulator data, signing keys or
+RunBoundary does not import adb keys, host AVDs, Simulator data, signing keys or
 provisioning profiles. It does not connect to devices automatically.
 
 Flutter's mutable SDK cache, pnpm/workspace directory symlinks and many GUI
@@ -217,7 +219,7 @@ host if necessary.
 To include the optional real Xcode license/isolation test:
 
 ```sh
-AGENTVAULT_TEST_XCODE_APP=/Applications/Xcode.app \
+RUNBOUNDARY_TEST_XCODE_APP=/Applications/Xcode.app \
   bash scripts/test-macos.sh --runtime-root /opt/homebrew
 ```
 
@@ -234,7 +236,7 @@ bundles are not installed automatically; unsafe existing bundles refuse startup.
 Its inspected external dependencies `ROCKit.framework` and
 `DVTDownloads.framework` in that same PrivateFrameworks directory receive the
 same conditional read/map permission and validation. These are fixed entries;
-AgentVault does not automatically approve arbitrary dylib dependency paths.
+RunBoundary does not automatically approve arbitrary dylib dependency paths.
 The exception does not cover the rest of `/Library/Developer`, Simulator device
 data, host user preferences, or Simulator service connections. The optional real
 Xcode test also compiles a fixed synthetic helper and checks that it can load the
@@ -276,7 +278,7 @@ empty workspace, in addition to license and framework loading checks. A passing
 discovery test still does not establish full build or Simulator compatibility.
 The need for this endpoint in xcodebuild is also recorded in
 [Android's build sandbox source](https://android.googlesource.com/platform/build/soong/+/79f6f7533/ui/build/sandbox/darwin/global.sb).
-Only this specific dependency informs AgentVault's policy; that source's broader
+Only this specific dependency informs RunBoundary's policy; that source's broader
 permissions are not imported.
 
 ## Interface Builder blocker investigation
@@ -376,7 +378,7 @@ into normal agent launches. Script output reports the security and production
 compatibility exit statuses separately and runs both even if one fails.
 
 The standalone service test also requires
-`AGENTVAULT_TEST_SIMULATOR_RUNTIME=/absolute/path/to/selected.simruntime`.
+`RUNBOUNDARY_TEST_SIMULATOR_RUNTIME=/absolute/path/to/selected.simruntime`.
 It uses the contained real Apple liblaunch_sim.dylib as a service positive
 control and prints bounded NSError details if loading fails. A rejected fake
 payload without a constructor marker remains inconclusive; it is not reported

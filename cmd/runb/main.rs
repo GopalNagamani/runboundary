@@ -1,9 +1,9 @@
 use clap::Parser;
 fn main() {
-    let code = match agentvault::cli::execute(agentvault::cli::Cli::parse()) {
+    let code = match runboundary::cli::execute(runboundary::cli::Cli::parse()) {
         Ok(code) => code,
         Err(e) => {
-            eprintln!("AgentVault: {e:#}");
+            eprintln!("RunBoundary: {e:#}");
             1
         }
     };

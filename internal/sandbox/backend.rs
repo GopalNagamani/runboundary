@@ -17,7 +17,7 @@ pub struct Backend {
 impl Backend {
     pub fn select(root: &Path, config: &Config) -> Result<Self> {
         if unsafe { libc::geteuid() } == 0 {
-            bail!("run AgentVault as an unprivileged user, not root");
+            bail!("run RunBoundary as an unprivileged user, not root");
         }
         let sdk = config.toolchains.bindings(root)?;
         match (std::env::consts::OS,config.sandbox.backend.as_str()) {

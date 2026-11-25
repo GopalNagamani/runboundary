@@ -1,5 +1,5 @@
 [package]
-name = "agentvault"
+name = "runboundary"
 version = "0.1.0"
 edition = "2021"
 license = "Apache-2.0"
@@ -9,8 +9,8 @@ description = "Fail-closed Linux and macOS filesystem sandbox for coding agents"
 path = "internal/lib.rs"
 
 [[bin]]
-name = "agentvault"
-path = "cmd/agentvault/main.rs"
+name = "runb"
+path = "cmd/runb/main.rs"
 
 [dependencies]
 anyhow = "1"

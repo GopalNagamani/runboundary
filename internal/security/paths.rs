@@ -386,7 +386,7 @@ impl Dir {
             )
         };
         #[cfg(not(any(target_os = "linux", target_os = "macos")))]
-        compile_error!("AgentVault supports Linux and macOS only");
+        compile_error!("RunBoundary supports Linux and macOS only");
         if result != 0 {
             bail!(std::io::Error::last_os_error());
         }
@@ -417,6 +417,30 @@ impl Dir {
         record.push(b'\n');
         f.write_all(&record)?;
         f.sync_all()?;
+        Ok(())
+    }
+    /// Append to a private regular file beneath this pinned directory.
+    pub fn append_file(&self, path: &Path, bytes: &[u8]) -> Result<()> {
+        let (dir, name) = self.parent(path)?;
+        let name = c(&name)?;
+        let mut file = cv(unsafe {
+            libc::openat(
+                dir.file.as_raw_fd(),
+                name.as_ptr(),
+                libc::O_WRONLY
+                    | libc::O_APPEND
+                    | libc::O_NOFOLLOW
+                    | libc::O_CLOEXEC
+                    | libc::O_NONBLOCK,
+            )
+        })?;
+        let meta = stat(&file)?;
+        if !meta.regular() || meta.links != 1 || meta.mode & 0o077 != 0 {
+            bail!("unsafe append target");
+        }
+        file.write_all(bytes)?;
+        file.sync_all()?;
+        dir.sync()?;
         Ok(())
     }
     pub fn remove(&self, path: &Path) -> Result<()> {

@@ -106,7 +106,7 @@ helper/child policy pinned to an AppArmor 4.0-compatible commit and SHA-256.
 It checks syntax before installation, refuses conflicting policies, checks
 that the profiles are enforced and the global restriction stays enabled, and
 records a separate setup report. This is a scoped policy change for the
-Bubblewrap executable throughout the VM, not an AgentVault runtime fallback.
+Bubblewrap executable throughout the VM, not an RunBoundary runtime fallback.
 Host/guest Bash syntax and the downloaded hash are checked; actual loading and
 post-setup Linux tests still await a developer-run report. See multipass.md.
 
@@ -274,7 +274,7 @@ are documented in the [official configuration reference](https://learn.chatgpt.c
 `codex-live-20261021T183608Z.log` shows both attempts stopped before inference:
 the initial diagnostic tried to override the reserved built-in provider ID
 `openai`, which installed Codex 0.163.0 rejects. The diagnostic now uses a
-custom `agentvault-diagnostic` provider with the official API URL, an env-key
+custom `runboundary-diagnostic` provider with the official API URL, an env-key
 reference, explicit WebSocket/HTTP requests and bounded retries. Both generated
 configurations were actually loaded successfully by the installed CLI using
 `features list`, a disposable CODEX_HOME and no API credentials or network
@@ -308,7 +308,7 @@ structured `Quota exceeded. Check your plan and billing details.` error,
 without UnknownIssuer or reconnect loops. This verifies provider-error
 round trips, not successful inference or the precise negotiated transport.
 The remaining blocker is the API account/project quota or billing state,
-which AgentVault cannot resolve. The diagnostic now stops on a structured
+which RunBoundary cannot resolve. The diagnostic now stops on a structured
 quota error rather than trying another transport. All six offline harness
 tests pass, including quota classification without treating model reply text
 as an actual quota error. A completed model reply and interactive edit/review/
@@ -654,7 +654,7 @@ All 45 regular tests and strict native and aarch64 Linux all-target Clippy pass.
 The new opt-in real Xcode test was attempted, but this managed environment
 refused the mandatory sandbox preflight with `sandbox_apply: Operation not
 permitted`. It is not a passing OS result or a successful full iOS build. Run
-`AGENTVAULT_TEST_XCODE_APP=/Applications/Xcode.app bash scripts/test-macos.sh
+`RUNBOUNDARY_TEST_XCODE_APP=/Applications/Xcode.app bash scripts/test-macos.sh
 --runtime-root /opt/homebrew` from Terminal, then retry the retained preview.
 
 ### CoreSimulator framework visibility correction
@@ -1293,3 +1293,305 @@ sandbox probe (`sandbox_apply: Operation not permitted`), before either profile'
 canary assertions or resource compilation. Run the full command in
 [ios-build.md](ios-build.md#native-validation) from Terminal to verify the new
 compiler mode and actual app. A prerequisite failure does not validate the fix.
+
+### Core CLI workflow stabilization (2026-11-04)
+
+Browser review lives on a separate branch and is outside this change. This
+checkout's terminal review now verifies the source snapshot against the retained
+baseline before showing or applying changes. If source files changed, it refuses
+rather than presenting current source as the original version. Each displayed
+entry is also checked against its snapshot identity and content hash.
+
+`tests/workflow_test.rs` adds portable CLI lifecycle coverage for:
+
+- Repeated review without source mutation, followed by add/modify/delete apply.
+- Durable recovery originals and a completed journal, removal of the pending
+  record after success, and refusal to apply an already completed session.
+- Stale source refusal before displaying changed source content, with the
+  pending session preserved after refusal.
+- Protected output refusal without source mutation, and review after repair.
+
+The three portable workflow tests, formatting, strict all-target Clippy, and
+macOS runner shell syntax pass. These tests do not establish OS isolation.
+
+An explicitly selected native workflow test launches a shell as a synthetic
+coding agent through the actual CLI. It checks copied and original secret
+exclusion, retention after nonzero agent exit despite `run --apply`, private
+home/temp cleanup, then terminal review and explicit application. It imports no
+credentials and makes no model requests. The macOS validation runner now includes
+this test. This managed session's attempted native run failed at the mandatory
+startup probe with `sandbox_apply: Operation not permitted`, before agent launch;
+its lifecycle assertions therefore remain pending Terminal validation.
+
+Run the focused native check from your own Terminal:
+
+```sh
+cargo test --locked --test workflow_test -- --ignored --nocapture --test-threads=1
+```
+
+Or run `bash scripts/test-macos.sh --runtime-root /opt/homebrew` for the complete
+native validation runner. Passing the shell lifecycle test does not certify live
+Codex/Claude authentication or compatibility. Source-embedded secret redaction,
+short commands, and highlighted browser diffs remain deferred backlog work.
+
+The full default `cargo test --locked` suite also passes after this change
+(103 tests passed, zero failures; prerequisite-dependent tests remain ignored).
+
+### Native CLI lifecycle confirmed in developer Terminal (2026-11-04)
+
+The developer supplied the focused command output above:
+`native_agent_run_retains_edits_on_failure_then_reviews_and_applies` passed
+(1 passed, 0 failed, 3 filtered out; 0.90 seconds). This supersedes the pending
+Terminal validation status for this specific test. The result confirms its
+native CLI isolation, failed-agent retention, private-directory cleanup, review,
+and explicit apply assertions on the developer's tested configuration. It does
+not establish live provider authentication, complete Xcode build compatibility,
+or completion of the full native security suite. Evidence is the supplied
+Terminal output; no separate full report or environment versions were supplied.
+
+### macOS release preparation (2026-11-04)
+
+The release scope and remaining gates are tracked in
+[macos-release.md](macos-release.md). Linux/Windows and the separate browser
+review branch are outside this change. Added two native CLI regressions:
+explicit advance approval after successful agent exit, and retention without
+application after SIGTERM termination. These compile but require Terminal
+execution; the earlier failed-agent lifecycle Terminal pass remains valid for
+that test only.
+
+The macOS runner now records per-command PASS/FAIL/exit-code results in a private
+`.checks.tsv` report alongside its log, plus OS/tool versions and Rust source,
+manifest, lockfile, and runner fingerprints. Optional omitted Xcode checks remain
+explicitly not run. Shell syntax, formatting, three portable workflow tests,
+and strict all-target Clippy pass after these changes.
+
+A release installation into a fresh temporary installation root succeeded with
+`cargo install --offline --path . --locked --root /tmp/runboundary-macos-release-smoke --force`.
+The initial online installation could not resolve crates.io in this environment;
+the offline smoke uses already cached locked dependencies and is not evidence
+of fresh dependency downloading. The installed binary passed version/help,
+run/review help, native project initialization, and existing-config overwrite
+refusal checks in a fresh temporary project.
+
+The complete current native suite, both new native tests, reproducible live-agent
+version evidence, compiler compatibility gates, and independent security review
+are still outstanding. This preparation does not declare macOS 100% complete.
+
+
+### Complete core native macOS runner passed (2026-11-04)
+
+Inspected the developer-produced `test-results/macos-20261104T044141Z.log` and
+matching `.checks.tsv`: all seven check groups passed with exit code zero.
+Environment: macOS 26.5.1 (25F80), arm64, Rust/Cargo 1.99.1, explicitly approved
+`/opt/homebrew` runtime tree. Results: 103 default tests, 21 native security tests,
+3 native CLI lifecycle tests, 4 native preview tests, 1 native toolchain test,
+formatting, and strict all-target Clippy passed. The report includes source
+fingerprints. Both new successful-apply and signal-termination tests passed.
+This supersedes the pending status for these core native suites and tests.
+
+The optional Xcode test was explicitly NOT RUN. Compiler/broker integration,
+versioned live provider compatibility, independent security review, and manual
+crash recovery validation are not established by this report. See
+[macos-release.md](macos-release.md) for the updated gates.
+
+### Optional Xcode check: Cocoa home mismatch (2026-11-04)
+
+The developer's optional `xcode_test` run failed in the Foundation helper before
+CoreSimulator loading: `Cocoa home differs from private HOME`. The seven passing
+core native check groups remain separate evidence; this Xcode gate is open.
+The existing backend supplies both HOME and CFFIXED_USER_HOME; no environment
+or sandbox grants were widened in response.
+
+The helper now compares existing directory device/inode identities, allowing
+system path aliases only when both resolve to the same directory. It still
+requires matching HOME/CFFIXED_USER_HOME and reports the HOME, fixed-home, and
+Cocoa paths on mismatch. This distinguishes path spelling differences from
+Cocoa actually selecting another home. An isolated host compilation/execution
+of the home-check helper passes with a private home and rejects a mismatched
+override; formatting and strict Clippy pass. This does not reproduce the native
+failure or establish a fix. Rerun the optional Xcode test from Terminal; use its
+expanded diagnostics to identify any remaining mismatch before changing policy.
+
+
+### Optional Xcode compatibility check passed (2026-11-04)
+
+The developer reran `accepted_xcode_license_is_visible_read_only_without_host_user_preferences`
+after the home identity-check correction and supplied passing Terminal output:
+1 passed, 0 failed, 2.65 seconds. This supersedes the failed/pending status for
+this specific optional test. The helper's verified directory-identity equality
+allows equivalent private-home spellings; the passing result does not identify
+which spelling caused the earlier string comparison failure.
+
+The test covers read-only accepted-license visibility, host-canary exclusion,
+Foundation private-home identity, CoreSimulator framework loading, synthetic
+workspace discovery, and denial of selected Xcode resources without SDK approval.
+It does not compile or run a complete app, establish Simulator service isolation,
+or certify live agent compatibility. Evidence is the developer-supplied Terminal
+output, not a new full native report. Compiler/broker integration gates remain open.
+
+### Explicit generic file-backed authentication adapters (2026-11-04)
+
+Added `--auth-adapter` to run/doctor, mutually exclusive with existing Codex
+login-file and API-key approval. A private, user-owned JSON manifest binds to one
+executable basename and names individual source/destination files. Credential
+imports require private single-linked no-follow files; cache/executable imports
+require non-group/world-writable owned files. Imports have bounded sizes, private
+destination permissions, and no host writeback. No new filesystem/runtime roots
+or inherited host environment are approved. Only COLORTERM/COLORFGBG display
+hints can be configured. Existing Codex schema-filtered import is preserved.
+
+Three adapter unit tests, CLI authentication conflict checks, four portable
+workflow tests, two Freebuff generator tests, formatting, strict all-target
+Clippy, and the default Rust suite pass locally. Added an ignored native generic
+adapter lifecycle test using synthetic credentials; the native runner already
+selects this workflow suite. This new test requires Terminal execution and is
+not covered by earlier native reports. Freebuff profile filenames were observed
+from local state/launcher metadata only; no credential contents were inspected.
+Live Freebuff authentication and download-cache reuse remain unverified.
+
+See [auth-adapters.md](auth-adapters.md) for configuration, Freebuff setup, and
+limits. Keychain/broker-only auth and provider-specific refresh handling are not
+certified by a generic file-mapping mechanism.
+
+### One-time saved adapter approval (2026-11-04)
+
+Added project-independent `auth setup freebuff` with a built-in narrow profile
+and explicit default-no approval prompt. Setup checks source metadata without
+reading credential contents, displays exact mappings, and exclusively creates
+a private user-level manifest. Settings/history remain excluded. Other agents
+can save a supplied private manifest through `auth setup AGENT --adapter PATH`.
+Run/doctor select saved approval by executable basename unless explicit auth
+flags or `--no-saved-auth` override it. Invalid saved profiles fail closed.
+`auth remove AGENT` revokes approval without deleting source login/cache files.
+
+Three isolated-HOME CLI tests cover default-no cancellation, explicit approval,
+private persistence, overwrite refusal, revocation, automatic selection, malformed
+saved profiles, opt-out, unsupported profiles, and unsafe credential permissions.
+They pass, as do the full default Rust suite, portable workflow tests, formatting,
+and strict all-target Clippy. The native synthetic adapter lifecycle test now
+also exercises one-time setup followed by an ordinary run with saved approval;
+this changed native case still requires Terminal validation. No host credentials
+were imported or saved by the assistant while implementing/testing this feature.
+
+### Hermes Nous Portal authentication projection (2026-11-05)
+
+Added built-in `auth setup hermes`. Based on inspected Hermes v0.22.7 source,
+the adapter projects version-1 `providers.nous` into a private auth store and
+only the selected model into private YAML configuration. Supports account and
+guest identity fields; drops unrelated providers/pools, TLS overrides, hooks,
+commands, environment and other configuration. Setup reads filenames/metadata
+only before approval; the assistant did not read actual login/config contents.
+Profile serialization and source validation use the existing explicit approval
+and private manifest lifecycle. New projection kinds are restricted to Hermes
+and their standard private-home destinations.
+
+Three filtering tests and an end-to-end synthetic setup/import/revoke test pass,
+as do the complete default Rust suite, formatting and strict all-target Clippy.
+Tests verify exclusion of unrelated secrets/configuration, guest identity,
+malformed/unsupported-store redaction and provider mismatch rejection.
+
+This does NOT establish a working Hermes launch or live Nous authentication.
+The inspected ~/.local/bin launcher references the home-installed application
+and bundled Python, outside approved runtime roots. No runtime allowance was
+added; setup documents this and run/doctor have targeted diagnostics. Runtime
+packaging/approval and native live validation remain required. See
+[auth-adapters.md](auth-adapters.md#hermes--nous-portal).
+
+### Dedicated Hermes runtime installer prepared (2026-11-05)
+
+The saved Nous adapter resolves, but the developer's run confirms that the
+home-installed Hermes launcher is unavailable under the existing runtime policy.
+Added `scripts/install-hermes-runtime.py` to prepare an independent Homebrew-tree
+runtime and launcher without granting access to ~/.hermes or ~/.local.
+
+Inspection of Hermes setup.py revealed an explicit wheel/sdist build guard;
+ordinary `pip install SOURCE` is therefore not used. The installer exports the
+source checkout's committed HEAD into its dedicated prefix, filters credential
+paths and unsafe archive entries, creates a Homebrew Python 3.14 venv, and uses
+the supported editable-install path against the dedicated snapshot. It verifies
+that the installed import resolves inside the new runtime. Existing runtime or
+launcher paths refuse installation. Package subprocesses receive temporary HOME
+and a minimal environment. No host source/login files are changed.
+
+Two planning/archive tests and Python 3.12 compilation pass; --plan succeeds for
+the current layout. No installation under /opt/homebrew, dependency download,
+or sandboxed Hermes/Nous launch was performed here. Those remain pending user
+Terminal results. The initial compile attempt using Apple's Python 3.9 could
+not write its external bytecode cache; the explicit Homebrew 3.12 check with a
+private /tmp bytecode cache succeeds. See auth-adapters.md for execution steps.
+
+### Interrupted apply recovery and credential-aware review (2026-11-19)
+
+Apply journals now record version-2 expected original/output hashes, normalized
+modes, and symlink targets before each file operation. `runb recover`
+accepts only a private direct-child recovery directory, preflights every path,
+and restores only when current project contents still match the recorded
+transaction. Conflicts are refused before project files are changed. Legacy
+journals without expected content metadata remain manual; crash/I/O fault
+injection and Linux-native execution are still useful follow-up validation.
+A project sync lock serializes apply and recovery.
+
+Review diffs redact common sensitive assignments, provider token prefixes,
+bearer values, and PEM private-key blocks. Review and run summaries warn on
+matches. This is display-only heuristic detection: it does not hide source from
+agents or guarantee finding every secret. Added tests cover token and key
+redaction, placeholder preservation, simulated interrupted edits/additions/
+deletions/symlinks, conflict refusal, CLI recovery, and review output.
+
+`cargo fmt --check`, `git diff --check`, the full default Rust suite, and strict
+all-target Clippy pass. The native macOS report
+`macos-20261119T153300Z.log` records all seven runner groups passing, including
+21 native security tests, 4 native workflow tests, 4 preview tests, and 1
+toolchain test. The later explicit Xcode license/framework/workspace test
+passed with `/Applications/Xcode.app`; it did not accept or modify a license.
+The no-key provider network diagnostic passed DNS and HTTPS under the production
+Seatbelt profile (expected unauthenticated HTTP 401).
+
+Recovery stress coverage now simulates every prefix of a mixed modified,
+deleted, added, and symlink transaction: 10 durable journal/file operations and
+11 crash cut points. Recovery restored the initial project at every point.
+This is deterministic operation-boundary simulation, not power-loss or
+filesystem-I/O fault injection.
+
+The real Xcode compiler-broker suite passed on 2026-11-20; see
+`macos-ib-bridge-20261120T030619Z.log`. The developer explicitly enabled shared
+Simulator services for compiler jobs. The run passed the compiler-profile
+canary/network test, typed XIB/storyboard/link jobs, asset catalog and symbol
+jobs, and a synthetic unsigned Simulator-target fixture build. Xcode emitted
+CoreSimulatorService availability warnings, but these compilation checks all
+completed successfully. No Simulator was booted and no app was launched.
+
+Independent security review, real power-loss injection, and Linux Bubblewrap
+execution remain separate gates. One authenticated Codex workflow passed, but
+agent-version compatibility and the full interactive/signal matrix are still
+unverified. These results validate the tested macOS core and compiler paths,
+not a 100% release certification.
+
+The fresh-install gate passed on 2026-11-20. `cargo install --path . --locked`
+used a newly created `CARGO_HOME`, downloaded the locked crates from crates.io,
+and installed a release build of version 0.1.0 into a temporary root. The
+installed binary passed version/help checks, initialized a fresh project,
+passed `doctor --agent sh` including the real Seatbelt filesystem probe, and
+ran a harmless `sh` command through the sandbox. The managed shell initially
+refused nested `sandbox_apply`; the doctor and launch checks passed when run
+outside that shell. The ChatGPT-authenticated Codex disposable-project run also
+completed and applied reviewed edits; exact Codex version and systematic
+interactive/signal behavior remain to be recorded.
+
+### Linux process cleanup and Windows foundation CI (2026-11-20)
+
+Linux compiler-broker commands now create their own process group, so timeout
+cleanup also terminates descendants holding inherited output pipes. The auth
+setup test helper now accepts `BrokenPipe` when a rejected command exits before
+reading its approval input. In the latest complete Linux VM report before the
+runner formatting correction, the regular suite, strict Clippy, and all real
+Bubblewrap tests passed; formatting was corrected and subsequently passed
+locally. A combined rerun then hit the 10 GiB VM disk limit. The runner now
+removes only its own retained Cargo `target` directories and disables debug and
+incremental build artifacts. The next VM attempt could not reach the guest
+(`No route to host`), so a fresh combined report is still pending.
+
+Windows CI now runs the standalone eight-test lexical path foundation on
+`windows-latest`. This is native Windows filesystem coverage for path parsing,
+not a Windows RunBoundary build or sandbox. The Windows filesystem/process
+backend and its real deny/allow tests remain unimplemented.

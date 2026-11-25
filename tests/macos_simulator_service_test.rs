@@ -1,6 +1,6 @@
 //! Opt-in service-mediated canary probe. Never reads real credentials.
 #![cfg(target_os = "macos")]
-use agentvault::{
+use runboundary::{
     policy::{config::Config, matcher::Matcher, toolchains::Ios},
     sandbox::{backend::Backend, process},
     security::paths::Dir,
@@ -221,8 +221,8 @@ fn foundation_report_uses_json_booleans_and_distinguishes_generic_errors() {
 }
 
 fn approved_runtime() -> (PathBuf, PathBuf) {
-    let runtime = PathBuf::from(std::env::var_os("AGENTVAULT_TEST_SIMULATOR_RUNTIME")
-        .expect("explicit AGENTVAULT_TEST_SIMULATOR_RUNTIME approval required for the service positive control"))
+    let runtime = PathBuf::from(std::env::var_os("RUNBOUNDARY_TEST_SIMULATOR_RUNTIME")
+        .expect("explicit RUNBOUNDARY_TEST_SIMULATOR_RUNTIME approval required for the service positive control"))
         .canonicalize().expect("approved runtime must exist");
     assert!(
         runtime.starts_with("/Library/Developer/CoreSimulator/Volumes")
@@ -256,7 +256,7 @@ fn approved_runtime() -> (PathBuf, PathBuf) {
 #[ignore = "REAL unknown-session spawn test: explicit Xcode/runtime/helper approval; Terminal only"]
 fn simulator_service_rejects_unknown_session_spawn() {
     assert_eq!(
-        std::env::var("AGENTVAULT_TEST_ALLOW_SIMULATOR_SERVICES").as_deref(),
+        std::env::var("RUNBOUNDARY_TEST_ALLOW_SIMULATOR_SERVICES").as_deref(),
         Ok("1"),
         "explicit helper-connection approval required"
     );
@@ -267,7 +267,7 @@ fn simulator_service_rejects_unknown_session_spawn() {
     std::fs::write(&secret, b"SYNTHETIC_SERVICE_CANARY").unwrap();
     let mut config = Config::for_host();
     config.toolchains.ios = Some(Ios {
-        xcode_app: std::env::var_os("AGENTVAULT_TEST_XCODE_APP")
+        xcode_app: std::env::var_os("RUNBOUNDARY_TEST_XCODE_APP")
             .expect("explicit Xcode approval required")
             .into(),
     });
@@ -373,7 +373,7 @@ int main(void) {
 #[ignore = "REAL service canary experiment: explicit Xcode and helper approval; Apple silicon Terminal only"]
 fn simulator_service_rejects_nonplatform_library() {
     assert_eq!(
-        std::env::var("AGENTVAULT_TEST_ALLOW_SIMULATOR_SERVICES").as_deref(),
+        std::env::var("RUNBOUNDARY_TEST_ALLOW_SIMULATOR_SERVICES").as_deref(),
         Ok("1"),
         "explicit helper-connection approval required"
     );
@@ -384,7 +384,7 @@ fn simulator_service_rejects_nonplatform_library() {
     std::fs::write(&secret, b"SYNTHETIC_SERVICE_CANARY").unwrap();
     let mut config = Config::for_host();
     config.toolchains.ios = Some(Ios {
-        xcode_app: std::env::var_os("AGENTVAULT_TEST_XCODE_APP")
+        xcode_app: std::env::var_os("RUNBOUNDARY_TEST_XCODE_APP")
             .expect("explicit Xcode approval required")
             .into(),
     });

@@ -62,7 +62,7 @@ fn host_project_credentials_and_docker_inaccessible() {
 #[test]
 #[ignore = "REAL OS SECURITY TEST: requires unprivileged Linux and working Bubblewrap"]
 fn approved_chatgpt_home_persists_without_exposing_original_credentials() {
-    use agentvault::{
+    use runboundary::{
         policy::config::Config,
         sandbox::backend::Backend,
         security::{codex_auth, paths::Dir},
@@ -77,7 +77,7 @@ fn approved_chatgpt_home_persists_without_exposing_original_credentials() {
     std::fs::set_permissions(&source, std::fs::Permissions::from_mode(0o600)).unwrap();
     let config = Config::for_host();
     let backend = Backend::select(project.path(), &config).unwrap();
-    let matcher = agentvault::policy::matcher::Matcher::new(&config).unwrap();
+    let matcher = runboundary::policy::matcher::Matcher::new(&config).unwrap();
     let work = prepare::prepare(&Dir::open(project.path()).unwrap(), &matcher).unwrap();
     let mut env = backend.environment(&config, &[], work.path()).unwrap();
     backend.probe(project.path(), work.path(), &env).unwrap();
@@ -117,7 +117,7 @@ fn approved_chatgpt_home_persists_without_exposing_original_credentials() {
 #[test]
 #[ignore = "REAL Linux Bubblewrap test: npm-style internal executable link"]
 fn npm_style_link_executes_without_host_secret_access() {
-    use agentvault::{
+    use runboundary::{
         policy::{config::Config, matcher::Matcher},
         sandbox::backend::Backend,
         security::paths::Dir,

@@ -1,4 +1,4 @@
-use agentvault::{
+use runboundary::{
     ib_bridge::client::{parse, remap_dependencies},
     interface_builder::build::{Files, Job, Kind, Options},
 };
@@ -12,10 +12,10 @@ fn strings(args: &[&str]) -> Vec<String> {
 
 #[test]
 fn simulator_service_authority_requires_a_host_cli_flag() {
-    use agentvault::cli::{Cli, Commands};
     use clap::Parser;
+    use runboundary::cli::{Cli, Commands};
     let args = [
-        "agentvault",
+        "runb",
         "ios-build",
         "--workspace",
         "App.xcworkspace",
@@ -60,9 +60,9 @@ fn simulator_service_authority_requires_a_host_cli_flag() {
 }
 
 #[cfg(target_os = "macos")]
-fn compiler_services() -> agentvault::interface_builder::SimulatorServices {
-    use agentvault::interface_builder::SimulatorServices;
-    if std::env::var("AGENTVAULT_TEST_COMPILER_SIMULATOR_SERVICES").as_deref() == Ok("1") {
+fn compiler_services() -> runboundary::interface_builder::SimulatorServices {
+    use runboundary::interface_builder::SimulatorServices;
+    if std::env::var("RUNBOUNDARY_TEST_COMPILER_SIMULATOR_SERVICES").as_deref() == Ok("1") {
         SimulatorServices::Enabled
     } else {
         SimulatorServices::Restricted
@@ -343,7 +343,7 @@ fn dependency_info_remaps_staged_inputs_outputs_and_auxiliary_files() {
 #[test]
 #[ignore = "REAL typed XIB/storyboard/link jobs: approve Xcode/runtime; Terminal required"]
 fn typed_jobs_produce_xib_storyboard_link_and_auxiliary_outputs() {
-    use agentvault::{
+    use runboundary::{
         interface_builder::build::{execute_with_services, Format},
         policy::{config::Config, toolchains::Ios},
     };
@@ -358,11 +358,11 @@ fn typed_jobs_produce_xib_storyboard_link_and_auxiliary_outputs() {
         execute_with_services(project, config, runtime, job, inputs, cancel, services)
     };
     let root = tempfile::tempdir().unwrap();
-    let runtime = std::env::var_os("AGENTVAULT_TEST_SIMULATOR_RUNTIME")
+    let runtime = std::env::var_os("RUNBOUNDARY_TEST_SIMULATOR_RUNTIME")
         .expect("explicit runtime approval required");
     let mut config = Config::for_host();
     config.toolchains.ios = Some(Ios {
-        xcode_app: std::env::var_os("AGENTVAULT_TEST_XCODE_APP")
+        xcode_app: std::env::var_os("RUNBOUNDARY_TEST_XCODE_APP")
             .expect("explicit Xcode approval required")
             .into(),
     });
@@ -466,7 +466,7 @@ fn typed_jobs_produce_xib_storyboard_link_and_auxiliary_outputs() {
         .keys()
         .any(|p| p.starts_with("Outputs/Base.lproj/LaunchScreen.storyboardc")));
     assert_eq!(
-        compiled.files.get(Path::new("Outputs/Base.lproj/LaunchScreen.storyboardc/AgentVaultLocalization/zh-Hans/LaunchScreen.strings")),
+        compiled.files.get(Path::new("Outputs/Base.lproj/LaunchScreen.storyboardc/RunBoundaryLocalization/zh-Hans/LaunchScreen.strings")),
         Some(&include_bytes!("fixtures/ib_build/LaunchScreen.strings").to_vec()),
         "compile must preserve companion bytes for the separate link job; outputs: {:?}", compiled.files.keys().collect::<Vec<_>>()
     );
@@ -515,7 +515,7 @@ fn typed_jobs_produce_xib_storyboard_link_and_auxiliary_outputs() {
     assert!(String::from_utf8_lossy(&plist.stdout).contains("准备就绪"));
     assert!(!linked.files.keys().any(|p| p
         .components()
-        .any(|c| c.as_os_str() == "AgentVaultLocalization")));
+        .any(|c| c.as_os_str() == "RunBoundaryLocalization")));
     println!("Verified actual version, XIB+metadata, localized storyboard compile with companion strings, and storyboard link operations in the constrained compiler.");
 }
 
@@ -523,17 +523,17 @@ fn typed_jobs_produce_xib_storyboard_link_and_auxiliary_outputs() {
 #[test]
 #[ignore = "REAL xcodebuild+IBC_EXEC fixture build: approve Xcode/runtime and run from Terminal"]
 fn xcode_build_uses_the_broker_for_xib_storyboard_and_link_steps() {
-    use agentvault::policy::{config::Config, toolchains::Ios};
+    use runboundary::policy::{config::Config, toolchains::Ios};
     let root = tempfile::tempdir().unwrap();
-    agentvault::cli::init::execute(root.path(), vec![]).unwrap();
+    runboundary::cli::init::execute(root.path(), vec![]).unwrap();
     let mut config = Config::for_host();
     config.toolchains.ios = Some(Ios {
-        xcode_app: std::env::var_os("AGENTVAULT_TEST_XCODE_APP")
+        xcode_app: std::env::var_os("RUNBOUNDARY_TEST_XCODE_APP")
             .expect("explicit Xcode approval required")
             .into(),
     });
     std::fs::write(
-        root.path().join("agentvault.yaml"),
+        root.path().join("runboundary.yaml"),
         serde_yaml::to_string(&config).unwrap(),
     )
     .unwrap();
@@ -558,10 +558,10 @@ fn xcode_build_uses_the_broker_for_xib_storyboard_and_link_steps() {
         std::fs::create_dir_all(file.parent().unwrap()).unwrap();
         std::fs::write(file, bytes).unwrap();
     }
-    let runtime = std::env::var_os("AGENTVAULT_TEST_SIMULATOR_RUNTIME")
+    let runtime = std::env::var_os("RUNBOUNDARY_TEST_SIMULATOR_RUNTIME")
         .expect("explicit runtime approval required");
-    let mut command = std::process::Command::new(env!("CARGO_BIN_EXE_agentvault"));
-    if compiler_services() == agentvault::interface_builder::SimulatorServices::Enabled {
+    let mut command = std::process::Command::new(env!("CARGO_BIN_EXE_runb"));
+    if compiler_services() == runboundary::interface_builder::SimulatorServices::Enabled {
         command
             .arg("ios-build")
             .arg("--allow-compiler-simulator-services");

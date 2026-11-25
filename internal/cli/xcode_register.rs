@@ -85,7 +85,7 @@ pub fn execute(
     if let Some(path) = recovery {
         println!("Metadata recovery originals: {path:?}");
     }
-    println!("Original project unchanged. Review: agentvault review {id} --diff");
-    println!("Approve after review: agentvault review {id} --apply");
+    println!("Original project unchanged. Review: runb diff {id}");
+    println!("Approve after review: runb apply {id}");
     Ok(())
 }

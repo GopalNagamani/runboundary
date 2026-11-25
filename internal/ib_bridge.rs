@@ -213,8 +213,8 @@ impl Broker {
         let home = home.canonicalize()?;
         // The runtime and compiler configuration stay captured in the host
         // worker. Shared state never chooses a host executable, path or runtime.
-        let bridge = home.join(".agentvault-ib");
-        Dir::open(&home)?.mkdir(std::ffi::OsStr::new(".agentvault-ib"))?;
+        let bridge = home.join(".runboundary-ib");
+        Dir::open(&home)?.mkdir(std::ffi::OsStr::new(".runboundary-ib"))?;
         let dir = Dir::open(&bridge)?;
         dir.mkdir(std::ffi::OsStr::new("queue"))?;
         let queue = Dir::open(&bridge.join("queue"))?;
@@ -768,7 +768,7 @@ mod tests {
         let broker = Broker::prepare(&work, &home, move |job, files, _| {
             if let Job::Link { inputs, .. } = job {
                 assert_eq!(inputs, &["Base.lproj/Sample.storyboardc"]);
-                assert_eq!(files[Path::new("Base.lproj/Sample.storyboardc/AgentVaultLocalization/zh-Hans/Sample.strings")], translation);
+                assert_eq!(files[Path::new("Base.lproj/Sample.storyboardc/RunBoundaryLocalization/zh-Hans/Sample.strings")], translation);
                 called.fetch_add(1, Ordering::Relaxed);
                 return Ok(build::Output {
                     files: Files::from([
@@ -786,9 +786,9 @@ mod tests {
             Ok(build::Output {
                 files: Files::from([
                     (PathBuf::from("Outputs/Base.lproj/Sample.storyboardc/Info.plist"), b"storyboard fixture".to_vec()),
-                    (PathBuf::from("Outputs/Base.lproj/Sample.storyboardc/AgentVaultLocalization/locales.json"), b"[\"zh-Hans\"]".to_vec()),
-                    (PathBuf::from("Outputs/Base.lproj/Sample.storyboardc/AgentVaultLocalization/zh-Hans/Sample.strings"), translation.to_vec()),
-                    (PathBuf::from("Aux/dependencies"), b"\0fixture\0\x10/stage/Inputs/Sample.storyboard\0\x10/stage/Inputs/Strings/zh-Hans.strings\0\x40/stage/Outputs/Base.lproj/Sample.storyboardc/Info.plist\0\x40/stage/Outputs/Base.lproj/Sample.storyboardc/AgentVaultLocalization/zh-Hans/Sample.strings\0".to_vec()),
+                    (PathBuf::from("Outputs/Base.lproj/Sample.storyboardc/RunBoundaryLocalization/locales.json"), b"[\"zh-Hans\"]".to_vec()),
+                    (PathBuf::from("Outputs/Base.lproj/Sample.storyboardc/RunBoundaryLocalization/zh-Hans/Sample.strings"), translation.to_vec()),
+                    (PathBuf::from("Aux/dependencies"), b"\0fixture\0\x10/stage/Inputs/Sample.storyboard\0\x10/stage/Inputs/Strings/zh-Hans.strings\0\x40/stage/Outputs/Base.lproj/Sample.storyboardc/Info.plist\0\x40/stage/Outputs/Base.lproj/Sample.storyboardc/RunBoundaryLocalization/zh-Hans/Sample.strings\0".to_vec()),
                 ]),
                 stdout: vec![], stderr: vec![], stage_root: "/stage".into(),
             })
@@ -827,13 +827,13 @@ mod tests {
         );
         assert_eq!(
             std::fs::read(derived.join(
-                "Temp/Base.lproj/Sample.storyboardc/AgentVaultLocalization/zh-Hans/Sample.strings"
+                "Temp/Base.lproj/Sample.storyboardc/RunBoundaryLocalization/zh-Hans/Sample.strings"
             ))
             .unwrap(),
             translation
         );
         let records = std::fs::read(&dependencies).unwrap();
-        let expected = format!("\0fixture\0\x10{}\0\x10{}\0\x40{}/Temp/Base.lproj/Sample.storyboardc/Info.plist\0\x40{}/Temp/Base.lproj/Sample.storyboardc/AgentVaultLocalization/zh-Hans/Sample.strings\0", source.display(), strings.display(), derived.display(), derived.display());
+        let expected = format!("\0fixture\0\x10{}\0\x10{}\0\x40{}/Temp/Base.lproj/Sample.storyboardc/Info.plist\0\x40{}/Temp/Base.lproj/Sample.storyboardc/RunBoundaryLocalization/zh-Hans/Sample.strings\0", source.display(), strings.display(), derived.display(), derived.display());
         assert_eq!(records, expected.as_bytes());
         client::execute(
             bridge,

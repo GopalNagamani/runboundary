@@ -4,10 +4,25 @@ use crate::{
     security::paths::Dir,
     workspace::prepare,
 };
-use anyhow::Result;
+use anyhow::{Context, Result};
 use std::path::Path;
 pub fn execute(root: &Path, agent: &str, auth: &[String], auth_file: Option<&Path>) -> Result<()> {
-    println!("AgentVault Security Check\n");
+    execute_with_adapter(root, agent, auth, auth_file, None)
+}
+pub fn execute_with_adapter(
+    root: &Path,
+    agent: &str,
+    auth: &[String],
+    auth_file: Option<&Path>,
+    adapter_file: Option<&Path>,
+) -> Result<()> {
+    if adapter_file.is_some() && (auth_file.is_some() || !auth.is_empty()) {
+        anyhow::bail!("authentication modes conflict");
+    }
+    let adapter = adapter_file
+        .map(|p| crate::security::auth_adapter::Adapter::load(p, agent))
+        .transpose()?;
+    println!("RunBoundary Security Check\n");
     let config = Config::load(root)?;
     let backend = Backend::select(root, &config)?;
     println!(
@@ -18,7 +33,10 @@ pub fn execute(root: &Path, agent: &str, auth: &[String], auth_file: Option<&Pat
     println!("[PASS] Protected patterns and fail-closed policy validated");
     let dir = Dir::open(root)?;
     let work = prepare::prepare(&dir, &matcher)?;
-    let env = backend.environment(&config, auth, work.path())?;
+    let mut env = backend.environment(&config, auth, work.path())?;
+    if let Some(adapter) = &adapter {
+        adapter.configure(&mut env);
+    }
     println!("[PASS] Environment filtering enabled");
     backend.probe(root, work.path(), &env)?;
     println!(
@@ -32,7 +50,11 @@ pub fn execute(root: &Path, agent: &str, auth: &[String], auth_file: Option<&Pat
     if !backend.tool_roots().is_empty() {
         println!("[INFO] {} explicit read-only SDK trees configured; use tools --check for executable checks", backend.tool_roots().len());
     }
-    backend.resolve(agent)?;
+    backend.resolve(agent).with_context(|| {
+        if Path::new(agent).file_name().is_some_and(|n| n == "hermes") {
+            "Hermes runtime unavailable in approved installations; the Nous Portal adapter imports login/model files only, not the home-installed application or Python runtime"
+        } else { "agent executable unavailable in approved runtimes" }
+    })?;
     if let Some(source) = auth_file {
         crate::security::codex_auth::validate_agent(agent)?;
         let home = work
@@ -43,10 +65,24 @@ pub fn execute(root: &Path, agent: &str, auth: &[String], auth_file: Option<&Pat
         crate::security::codex_auth::import(source, &home)?;
         println!("[PASS] Approved ChatGPT credential file validated (provider session not tested)");
     }
+    if let Some(adapter) = &adapter {
+        adapter.import(
+            &work
+                .path()
+                .parent()
+                .ok_or_else(|| anyhow::anyhow!("missing session parent"))?
+                .join("sandbox-home"),
+        )?;
+        println!("[PASS] Explicit adapter files validated (provider login not tested)");
+    }
     backend.cleanup_private_dirs(work.path(), &env)?;
     println!("[PASS] Requested executable available in trusted runtime");
     if auth_file.is_some() {
         println!("[INFO] ChatGPT login selected; credentials are discarded after the session");
+    } else if adapter.is_some() {
+        println!(
+            "[INFO] Adapter copies are discarded after the session; host files are never updated"
+        );
     } else if auth.is_empty() {
         println!("[INFO] No provider credential imported; agent/provider handles authentication if needed");
     } else {

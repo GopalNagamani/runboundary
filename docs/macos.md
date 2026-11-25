@@ -1,5 +1,8 @@
 # Native macOS backend (experimental)
 
+See the [macOS release checklist](macos-release.md) for current release gates,
+including native suite reproduction and evidence still required.
+
 **All 15 native macOS security tests passed** in the supplied report
 `macos-20261021T171714Z.log`, on macOS 26.5.1 arm64 with explicitly approved
 Homebrew runtimes. The 22 regular tests, formatting and strict Clippy also pass.
@@ -32,7 +35,7 @@ only return codes and synthetic marker-presence booleans, never process contents
 It never launches coding agents or imports approved authentication. A payload
 that cannot start is a failed check, never a successful denial.
 
-AgentVault now implements a native `seatbelt` backend through Apple's
+RunBoundary now implements a native `seatbelt` backend through Apple's
 `/usr/bin/sandbox-exec`. A Linux VM is not needed to run this backend. Linux
 continues to use Bubblewrap. There is no fallback between the two backends.
 
@@ -48,7 +51,7 @@ You already have Homebrew Node.js and Python 3.12 in /opt/homebrew on the
 initial development Mac. From Terminal:
 
 ```sh
-cd /Users/hariprakashb/Desktop/agentvault
+cd /path/to/your/runboundary/checkout
 bash scripts/test-macos.sh --runtime-root /opt/homebrew
 ```
 
@@ -81,17 +84,18 @@ group-writable, world-writable, and setuid/setgid paths are rejected.
 
 ## Try a disposable shell session
 
-After the real tests pass, use fake project secrets first:
+With [`runb` installed](../README.md#usage), try a project with synthetic secrets:
 
 ```sh
-mkdir -p /private/tmp/agentvault-mac-demo
-printf 'FAKE_SECRET=example-only\n' > /private/tmp/agentvault-mac-demo/.env
-printf 'EXAMPLE=value\n' > /private/tmp/agentvault-mac-demo/.env.example
-printf 'original\n' > /private/tmp/agentvault-mac-demo/source.txt
+mkdir -p /private/tmp/runboundary-mac-demo
+cd /private/tmp/runboundary-mac-demo
+printf 'FAKE_SECRET=example-only\n' > .env
+printf 'EXAMPLE=value\n' > .env.example
+printf 'original\n' > source.txt
 
-./target/debug/agentvault --project /private/tmp/agentvault-mac-demo init
-./target/debug/agentvault --project /private/tmp/agentvault-mac-demo doctor --agent sh
-./target/debug/agentvault --project /private/tmp/agentvault-mac-demo run -- sh
+runb init
+runb doctor sh
+runb run sh
 ```
 
 Inside that shell:
@@ -100,7 +104,7 @@ Inside that shell:
 pwd
 cat .env
 cat .env.example
-cat /private/tmp/agentvault-mac-demo/.env
+cat /private/tmp/runboundary-mac-demo/.env
 printf 'edited\n' > source.txt
 exit
 ```
@@ -111,8 +115,8 @@ has no `/workspace` mount alias. The copied `.env` is absent and the original
 source remains unchanged until you explicitly approve synchronization:
 
 ```sh
-./target/debug/agentvault --project /private/tmp/agentvault-mac-demo review SESSION --diff
-./target/debug/agentvault --project /private/tmp/agentvault-mac-demo review SESSION --apply
+runb diff SESSION
+runb apply SESSION
 ```
 
 Replace SESSION with the printed identifier. `init` refuses to overwrite an
@@ -121,7 +125,7 @@ existing configuration. For a previous Linux configuration, explicitly change
 
 ## Codex and Claude
 
-AgentVault sets `CODEX_CA_CERTIFICATE` and `SSL_CERT_FILE` to the existing
+RunBoundary sets `CODEX_CA_CERTIFICATE` and `SSL_CERT_FILE` to the existing
 public `/private/etc/ssl/cert.pem` bundle on macOS. Codex documents these for
 HTTPS/login/WebSocket trust configuration. The file must be root-controlled,
 regular, single-link and nonempty; it is already read-only in the sandbox.
@@ -140,13 +144,13 @@ bash scripts/diagnose-live-codex.sh --runtime-root /opt/homebrew
 Unlike the public network probes, this makes real authenticated model requests
 and API charges may apply. It creates a fresh synthetic project, builds the
 current CLI without exposing the key to build scripts, and launches Codex only
-through AgentVault. Each attempt has provider retries disabled and a 60-second
-deadline (plus shutdown time). It uses a custom `agentvault-diagnostic`
+through RunBoundary. Each attempt has provider retries disabled and a 60-second
+deadline (plus shutdown time). It uses a custom `runboundary-diagnostic`
 provider pointed at the official `https://api.openai.com/v1` API and reads the
 approved key by environment-variable name. Built-in provider IDs such as
 `openai` are never overridden. It requests a short reply without tools, first
 with WebSockets requested and then, only on failure, with HTTP/SSE requested
-via `model_providers.agentvault-diagnostic.supports_websockets=false`.
+via `model_providers.runboundary-diagnostic.supports_websockets=false`.
 These are requested transports, not a claim that a successful reply has
 verified which wire protocol the client selected. No sandbox permissions change.
 Output is bounded, credential-redacted and control-escaped before writing a
@@ -166,11 +170,11 @@ python3 -m unittest discover -s scripts/tests -p test_live_codex_diagnostic.py -
 For a fresh project using explicitly approved Homebrew tools:
 
 ```sh
-agentvault init --runtime-root /opt/homebrew
-agentvault doctor --agent codex --auth-env OPENAI_API_KEY
-agentvault run --auth-env OPENAI_API_KEY -- codex
+runb init --runtime-root /opt/homebrew
+runb doctor codex --auth-env OPENAI_API_KEY
+runb run --auth-env OPENAI_API_KEY codex
 # Or:
-agentvault run --auth-env ANTHROPIC_API_KEY -- claude
+runb run --auth-env ANTHROPIC_API_KEY claude
 ```
 
 Provider credentials are optional. Local or self-hosted models can run without
@@ -185,7 +189,7 @@ integration; live login, terminal behavior, and agent-version compatibility
 still need validation.
 
 The private macOS home and temporary directory are filesystem directories
-inside the 0700 session parent, not tmpfs mounts. AgentVault removes those two
+inside the 0700 session parent, not tmpfs mounts. RunBoundary removes those two
 directories after the main process returns and before retaining source edits.
 Approved credentials can still be deliberately copied by an agent into
 permitted source files; the filesystem sandbox cannot prevent that.
@@ -272,7 +276,7 @@ outlive it while retaining the filesystem restrictions. Do not equate the two
 backends' security properties.
 
 Apple marks sandbox-exec deprecated and its system SBPL profiles describe the
-interface as private and changeable. AgentVault therefore probes real startup
+interface as private and changeable. RunBoundary therefore probes real startup
 and exclusion behavior each time, refuses unavailable controls, and treats
 this backend as experimental. Future macOS releases may require changes.
 Local primary references: `man sandbox-exec`, and Apple's installed
@@ -285,7 +289,7 @@ broker and filesystem permissions.
 With the session ID printed when Codex exits:
 
 ```sh
-./target/debug/agentvault --project "$AV_DEMO" preview SESSION_ID --allow-network-listen --port 8000 -- \
+runb preview SESSION_ID --allow-network-listen \
   python3.12 -m http.server 8000 --bind 127.0.0.1
 ```
 
@@ -294,9 +298,9 @@ an Xcode launcher whose developer-tool discovery is intentionally unavailable
 inside the sandbox.
 
 Open http://127.0.0.1:8000 after Python reports that the server started. This
-serves the retained edited copy, not `$AV_DEMO`. Stop it with Ctrl-C, then use
-`review SESSION_ID --diff` and `review SESSION_ID --apply` with the same project.
-For Vite, use `--allow-network-listen --port 5173 -- npm run dev -- --host 127.0.0.1 --port 5173 --strictPort`.
+serves the retained edited copy. Stop it with Ctrl-C, then use
+`runb diff SESSION_ID` and `runb apply SESSION_ID` from the same project.
+For Vite, use `--allow-network-listen npm run dev -- --host 127.0.0.1 --port 5173 --strictPort`.
 See the README for dependency/symlink limitations, generated build output, and
 fresh-home/no-credential behavior. The macOS test runner also runs the opt-in
 `preview_test` suite, including an actual localhost HTTP round trip with

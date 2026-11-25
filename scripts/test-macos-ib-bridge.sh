@@ -22,23 +22,23 @@ fi
 repo_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$repo_dir"
 if ! command -v cargo >/dev/null; then
-  if [ -x /private/tmp/agentvault-toolchain/bin/cargo ]; then
-    export PATH="/private/tmp/agentvault-toolchain/bin:$PATH"
-    export CARGO_HOME=/private/tmp/agentvault-cargo
+  if [ -x /private/tmp/runboundary-toolchain/bin/cargo ]; then
+    export PATH="/private/tmp/runboundary-toolchain/bin:$PATH"
+    export CARGO_HOME=/private/tmp/runboundary-cargo
   else echo 'Install a Rust stable toolchain first.' >&2; exit 1; fi
 fi
-export AGENTVAULT_TEST_XCODE_APP="$2"
-export AGENTVAULT_TEST_SIMULATOR_RUNTIME="$4"
-export AGENTVAULT_TEST_COMPILER_SIMULATOR_SERVICES=0
+export RUNBOUNDARY_TEST_XCODE_APP="$2"
+export RUNBOUNDARY_TEST_SIMULATOR_RUNTIME="$4"
+export RUNBOUNDARY_TEST_COMPILER_SIMULATOR_SERVICES=0
 compiler_flags=()
 if [ "$allow_compiler_services" = true ]; then
-  export AGENTVAULT_TEST_COMPILER_SIMULATOR_SERVICES=1
+  export RUNBOUNDARY_TEST_COMPILER_SIMULATOR_SERVICES=1
   compiler_flags=(--allow-compiler-simulator-services)
 fi
 mkdir -p test-results
 report="$repo_dir/test-results/macos-ib-bridge-$(date -u +%Y%m%dT%H%M%SZ).log"
 {
-  printf 'AgentVault Interface Builder and asset catalog bridge validation\nReport: %s\n' "$report"
+  printf 'RunBoundary Interface Builder and asset catalog bridge validation\nReport: %s\n' "$report"
   sw_vers
   printf 'Explicit Xcode=%s; compiler runtime=%s\n' "$2" "$4"
   printf 'Compiler Simulator services explicitly enabled: %s\n' "$allow_compiler_services"
@@ -57,6 +57,6 @@ report="$repo_dir/test-results/macos-ib-bridge-$(date -u +%Y%m%dT%H%M%SZ).log"
   cargo test --locked --test ib_bridge_test xcode_build_uses_the_broker_for_xib_storyboard_and_link_steps -- --exact --ignored --nocapture --test-threads=1
   if [ "$#" -eq 10 ]; then
     echo 'Fixture passed. Starting the selected app build in a fresh filtered copy; no source changes are applied.'
-    cargo run --locked --bin agentvault -- --project "$6" ios-build ${compiler_flags[@]+"${compiler_flags[@]}"} --workspace "$8" --scheme "${10}" --simulator-runtime "$4"
+    cargo run --locked --bin runb -- --project "$6" ios-build ${compiler_flags[@]+"${compiler_flags[@]}"} --workspace "$8" --scheme "${10}" --simulator-runtime "$4"
   fi
 } 2>&1 | tee "$report"

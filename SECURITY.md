@@ -9,7 +9,7 @@ read denials through KERN_PROCARGS and KERN_PROCARGS2 with positive controls.
 The temporary CLI block is removed; mandatory sandbox startup checks remain.
 Live authenticated agent sessions and broader attack paths remain unverified.
 
-AgentVault is an experimental development MVP, not a production security product. No production-readiness or completed Linux sandbox-validation claim is made.
+RunBoundary is an experimental development MVP, not a production security product. No production-readiness or completed Linux sandbox-validation claim is made.
 
 On macOS the exact `/private/var/run/mDNSResponder` socket is an explicit
 outbound exception for OS DNS resolution. Other host Unix sockets remain
@@ -26,19 +26,19 @@ Protected path names are classified without reading their file contents during d
 
 ## Trusted components and exclusions
 
-Trust the Linux kernel, Bubblewrap, AgentVault and its dependencies, the host administrator, invoking user, and exposed runtime files. Host administrator/root and malicious same-UID host processes are outside scope: they can inspect or alter AgentVault directly. A malicious concurrent host writer can invalidate assumptions between checks; descriptor-relative traversal prevents symlink escapes, but it is not a defense against an attacker who already controls the invoking account. Stop ordinary editors/build processes before synchronization. Detected metadata/content changes fail closed.
+Trust the Linux kernel, Bubblewrap, RunBoundary and its dependencies, the host administrator, invoking user, and exposed runtime files. Host administrator/root and malicious same-UID host processes are outside scope: they can inspect or alter RunBoundary directly. A malicious concurrent host writer can invalidate assumptions between checks; descriptor-relative traversal prevents symlink escapes, but it is not a defense against an attacker who already controls the invoking account. Stop ordinary editors/build processes before synchronization. Detected metadata/content changes fail closed.
 
 The complete read-only /usr, /bin, /lib, /lib64 trees can be visible. These directories must contain only deliberately approved system runtimes, not secrets or unrelated projects. Selected DNS, NSS, and TLS trust configuration is also exposed. Writable system-runtime directories are not a supported deployment. Home-installed agents and their login caches are not automatically imported.
 
 Unrestricted shared networking includes localhost and host-reachable services. A vulnerable or unauthenticated host service could expose host information over TCP despite filesystem isolation. No network isolation, egress policy, exfiltration prevention, seccomp filtering, CPU/memory/disk quotas, or defense against kernel vulnerabilities is provided. Nested user namespaces are disabled; this does not replace syscall filtering. Terminal output from an interactive agent remains untrusted; review previews escape controls but the live agent's terminal stream does not.
 
-**Secrets already present in permitted source files, agent-visible environment variables, model prompts, or approved authentication credentials cannot be protected by AgentVault.** File renaming or copying a secret into an otherwise permitted path can defeat name-based selection when performed by the trusted host user before preparation. Do not treat pattern matching as content-based secret detection.
+**Secrets already present in permitted source files, agent-visible environment variables, model prompts, or approved authentication credentials cannot be protected by RunBoundary.** File renaming or copying a secret into an otherwise permitted path can defeat name-based selection when performed by the trusted host user before preparation. Review output now heuristically redacts common credential assignments, provider token prefixes, bearer values, and private-key blocks. This reduces accidental display but is not complete content-based secret detection; it does not prevent the agent from reading or transmitting permitted content.
 
-Approved OPENAI_API_KEY and ANTHROPIC_API_KEY values are visible to agents and descendants. They may read, persist, or transmit them. They are never intentionally included in AgentVault arguments, audit records, or diagnostic output. Agent-controlled terminal output may print credentials; AgentVault does not claim to redact the live terminal stream. Model-provider authentication and networking are not verified by a local presence check.
+Approved OPENAI_API_KEY and ANTHROPIC_API_KEY values are visible to agents and descendants. They may read, persist, or transmit them. They are never intentionally included in RunBoundary arguments, audit records, or diagnostic output. Agent-controlled terminal output may print credentials; RunBoundary does not claim to redact the live terminal stream. Model-provider authentication and networking are not verified by a local presence check.
 
-Synchronization is a journaled sequence with backups, not a cross-file atomic transaction. Ordinary failures attempt rollback. Crashes, I/O failures, and concurrent host edits may require manual recovery. Review records/audit logs are not tamper-proof against the developer. Recovery files and retained workspaces can contain sensitive permitted code; clean them up explicitly. Empty directories, ACLs, xattrs, sparse layout, and most original permission bits are not reproduced. Workspace limits are 64 MiB/file and 512 MiB total; no runtime write quota exists.
+Synchronization is a journaled sequence with backups, not a cross-file atomic transaction. Ordinary failures attempt rollback. `runb recover` can restore an interrupted version-2 transaction when paths still match its journal; conflicts, legacy journals, and I/O failures may require manual recovery. Review records/audit logs are not tamper-proof against the developer. Recovery files and retained workspaces can contain sensitive permitted code; clean them up explicitly. Empty directories, ACLs, xattrs, sparse layout, and most original permission bits are not reproduced. Workspace limits are 64 MiB/file and 512 MiB total; no runtime write quota exists.
 
-Bubblewrap does not supply an exhaustive denied-operation log. AgentVault audits observed lifecycle/policy/sync decisions, not every denied filesystem access. No Landlock enforcement claim is made; it is deferred pending a tested design that adds value beyond the mount namespace.
+Bubblewrap does not supply an exhaustive denied-operation log. RunBoundary audits observed lifecycle/policy/sync decisions, not every denied filesystem access. No Landlock enforcement claim is made; it is deferred pending a tested design that adds value beyond the mount namespace.
 
 ## Validation and reporting
 
@@ -136,7 +136,7 @@ can leave temporary credentials on disk. Filesystem deletion is not secure erasu
 same filesystem/process backend, sanitized environment, trusted executable
 resolution and mandatory preflight as agent sessions. It imports no provider
 credentials and grants no approval. A persistent per-session advisory lock
-coordinates AgentVault preview/review/apply commands; it does not prevent other
+coordinates RunBoundary preview/review/apply commands; it does not prevent other
 host processes from editing files. Retained session paths must name private,
 current-user-owned workspace directories with a matching session parent.
 Unsafe/protected workspace entries are refused before and after preview.
@@ -162,7 +162,7 @@ not use production credentials or production databases for preview.
 
 Foreground signal forwarding/lifetime limitations of each backend continue to
 apply. macOS has no PID namespace or complete orphan-process containment;
-malicious descendants that detach can outlive a command. AgentVault rescans
+malicious descendants that detach can outlive a command. RunBoundary rescans
 before synchronization but cannot treat a completed preview as proof of runtime
 safety. Users must stop previews and review any generated output before approval.
 
@@ -220,7 +220,7 @@ Selecting the iOS/Xcode toolchain additionally permits read-only access to the
 single system acceptance record `/Library/Preferences/com.apple.dt.Xcode.plist`.
 It is restricted to a root-controlled regular single-link file no larger than
 64 KiB; no user preference domain or entire preferences directory is exposed.
-No record is generated, modified, or accepted by AgentVault. The noninteractive
+No record is generated, modified, or accepted by RunBoundary. The noninteractive
 license check observes actual existing state. Normal non-Xcode profiles receive
 no new grant; process-data denial remains the final profile rule.
 

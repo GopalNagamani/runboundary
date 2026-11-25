@@ -1,4 +1,4 @@
-use agentvault::{
+use runboundary::{
     policy::{config::Config, matcher::Matcher},
     security::paths::Dir,
     workspace::{prepare, sync},
@@ -8,12 +8,14 @@ use std::{path::Path, process::Command};
 fn init_valid_and_no_overwrite() {
     let p = tempfile::tempdir().unwrap();
     std::fs::write(p.path().join(".env"), "DO_NOT_PRINT_FAKE_SECRET").unwrap();
-    let out = Command::new(env!("CARGO_BIN_EXE_agentvault"))
+    let out = Command::new(env!("CARGO_BIN_EXE_runb"))
         .args(["--project", p.path().to_str().unwrap(), "init"])
         .output()
         .unwrap();
     assert!(out.status.success());
     assert!(!String::from_utf8_lossy(&out.stdout).contains("DO_NOT_PRINT_FAKE_SECRET"));
+    assert!(p.path().join("runboundary.yaml").is_file());
+    assert!(!p.path().join("agentvault.yaml").exists());
     let config = Config::load(p.path()).unwrap();
     assert_eq!(
         config.sandbox.backend,
@@ -23,11 +25,35 @@ fn init_valid_and_no_overwrite() {
             "bubblewrap"
         }
     );
-    assert!(!Command::new(env!("CARGO_BIN_EXE_agentvault"))
+    assert!(!Command::new(env!("CARGO_BIN_EXE_runb"))
         .args(["--project", p.path().to_str().unwrap(), "init"])
         .status()
         .unwrap()
         .success());
+}
+
+#[test]
+fn init_preserves_policy_from_before_the_rename() {
+    let project = tempfile::tempdir().unwrap();
+    let config_path = project.path().join("runboundary.yaml");
+    let legacy_path = project.path().join("agentvault.yaml");
+    let mut config = Config::for_host();
+    config.filesystem.protected.push("private".into());
+    std::fs::write(&legacy_path, serde_yaml::to_string(&config).unwrap()).unwrap();
+
+    let output = Command::new(env!("CARGO_BIN_EXE_runb"))
+        .args(["--project", project.path().to_str().unwrap(), "init"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("rename it to runboundary.yaml"));
+    assert!(!config_path.exists());
+
+    std::fs::rename(legacy_path, config_path).unwrap();
+    let config = Config::load(project.path()).unwrap();
+    assert!(Matcher::new(&config)
+        .unwrap()
+        .protected(Path::new("private")));
 }
 #[test]
 fn synchronization_protects_secrets_and_detects_host_edits() {
@@ -77,12 +103,12 @@ fn synchronization_add_modify_delete_and_recovery() {
 fn startup_failure_never_executes_host_command() {
     let p = tempfile::tempdir().unwrap();
     std::fs::write(
-        p.path().join("agentvault.yaml"),
-        agentvault::policy::config::DEFAULT,
+        p.path().join("runboundary.yaml"),
+        runboundary::policy::config::DEFAULT,
     )
     .unwrap();
     let marker = p.path().join("launched");
-    let result = Command::new(env!("CARGO_BIN_EXE_agentvault"))
+    let result = Command::new(env!("CARGO_BIN_EXE_runb"))
         .args([
             "--project",
             p.path().to_str().unwrap(),
@@ -106,8 +132,8 @@ fn startup_failure_never_executes_host_command() {
 fn retained_review_preview_and_explicit_approval() {
     let p = tempfile::tempdir().unwrap();
     std::fs::write(
-        p.path().join("agentvault.yaml"),
-        agentvault::policy::config::DEFAULT,
+        p.path().join("runboundary.yaml"),
+        runboundary::policy::config::DEFAULT,
     )
     .unwrap();
     std::fs::write(p.path().join("source"), "before").unwrap();
@@ -116,18 +142,13 @@ fn retained_review_preview_and_explicit_approval() {
     let root = Dir::open(p.path()).unwrap();
     let work = prepare::prepare(&root, &m).unwrap();
     std::fs::write(work.path().join("source"), "after\u{1b}[31m").unwrap();
-    agentvault::security::audit::log(p.path(), "test", "synthetic review fixture").unwrap();
+    runboundary::security::audit::log(p.path(), "test", "synthetic review fixture").unwrap();
     let workspace = work.path().to_owned();
     let _ = work.temp.keep();
-    let id = agentvault::cli::review::retain(p.path(), workspace.clone(), work.baseline).unwrap();
-    let output = Command::new(env!("CARGO_BIN_EXE_agentvault"))
-        .args([
-            "--project",
-            p.path().to_str().unwrap(),
-            "review",
-            &id,
-            "--diff",
-        ])
+    let id = runboundary::cli::review::retain(p.path(), workspace.clone(), work.baseline).unwrap();
+    let output = Command::new(env!("CARGO_BIN_EXE_runb"))
+        .current_dir(p.path())
+        .args(["diff", &id])
         .output()
         .unwrap();
     assert!(
@@ -139,7 +160,13 @@ fn retained_review_preview_and_explicit_approval() {
     assert!(!preview.contains("FAKE_HOST_SECRET_NOT_IN_PREVIEW"));
     assert!(!preview.contains('\u{1b}'));
     assert_eq!(std::fs::read(p.path().join("source")).unwrap(), b"before");
-    agentvault::cli::review::execute(p.path(), &id, true, false).unwrap();
+    assert!(Command::new(env!("CARGO_BIN_EXE_runb"))
+        .current_dir(p.path())
+        .args(["apply", &id])
+        .output()
+        .unwrap()
+        .status
+        .success());
     assert_eq!(
         std::fs::read(p.path().join("source")).unwrap(),
         b"after\x1b[31m"
@@ -167,12 +194,12 @@ fn sync_failure_rolls_back_and_retains_originals() {
         .unwrap()
         .file_name()
         .to_string_lossy()
-        .starts_with(".agentvault-recovery-")));
+        .starts_with(".runboundary-recovery-")));
 }
 
 #[test]
 fn authentication_is_explicit_and_tokens_are_not_arguments() {
-    use agentvault::sandbox::process::agent_entrypoint;
+    use runboundary::sandbox::process::agent_entrypoint;
     use std::collections::BTreeMap;
     let mut env = BTreeMap::new();
     env.insert("OPENAI_API_KEY".into(), "SYNTHETIC_NOT_REAL_TOKEN".into());
@@ -189,7 +216,7 @@ fn authentication_is_explicit_and_tokens_are_not_arguments() {
 
 #[test]
 fn agents_and_local_codex_models_do_not_require_provider_credentials() {
-    use agentvault::sandbox::process::agent_entrypoint;
+    use runboundary::sandbox::process::agent_entrypoint;
     let env = std::collections::BTreeMap::new();
     let local_args: Vec<String> = ["--oss", "--local-provider", "ollama", "-m", "example-model"]
         .map(String::from)
@@ -216,10 +243,10 @@ fn agents_and_local_codex_models_do_not_require_provider_credentials() {
 
 #[test]
 fn chatgpt_auth_is_explicit_and_conflicts_with_api_key_approval() {
-    use agentvault::cli::Cli;
     use clap::Parser;
+    use runboundary::cli::Cli;
     assert!(Cli::try_parse_from([
-        "agentvault",
+        "runb",
         "run",
         "--codex-auth-file",
         "/example/auth.json",
@@ -229,16 +256,24 @@ fn chatgpt_auth_is_explicit_and_conflicts_with_api_key_approval() {
         "codex"
     ])
     .is_err());
+    assert!(
+        Cli::try_parse_from(["runb", "doctor", "--codex-auth-file", "/example/auth.json"]).is_ok()
+    );
+    assert!(Cli::try_parse_from(["runb", "doctor", "--chatgpt"]).is_ok());
+    assert!(Cli::try_parse_from(["runb", "doctor", "sh"]).is_ok());
+    assert!(Cli::try_parse_from(["runb", "doctor", "sh", "--agent", "codex"]).is_err());
     assert!(Cli::try_parse_from([
-        "agentvault",
-        "doctor",
+        "runb",
+        "run",
+        "--chatgpt",
         "--codex-auth-file",
-        "/example/auth.json"
+        "/example/auth.json",
+        "codex"
     ])
-    .is_ok());
-    assert!(agentvault::security::codex_auth::validate_agent("claude").is_err());
+    .is_err());
+    assert!(runboundary::security::codex_auth::validate_agent("claude").is_err());
     let env = std::collections::BTreeMap::new();
-    let (_, args) = agentvault::sandbox::process::agent_entrypoint_with_auth(
+    let (_, args) = runboundary::sandbox::process::agent_entrypoint_with_auth(
         "codex",
         Path::new("/usr/bin/codex"),
         &[],
@@ -249,7 +284,7 @@ fn chatgpt_auth_is_explicit_and_conflicts_with_api_key_approval() {
     assert!(args
         .iter()
         .any(|v| v == "cli_auth_credentials_store=\"file\""));
-    assert!(agentvault::sandbox::process::agent_entrypoint_with_auth(
+    assert!(runboundary::sandbox::process::agent_entrypoint_with_auth(
         "claude",
         Path::new("/usr/bin/claude"),
         &[],
@@ -257,4 +292,47 @@ fn chatgpt_auth_is_explicit_and_conflicts_with_api_key_approval() {
         true,
     )
     .is_err());
+}
+
+#[test]
+fn agent_options_never_opt_into_runboundary_approval() {
+    use clap::Parser;
+    use runboundary::cli::{Cli, Commands};
+
+    for argv in [
+        &[
+            "runb",
+            "run",
+            "--chatgpt",
+            "codex",
+            "--apply",
+            "--project",
+            "child",
+        ][..],
+        &[
+            "runb",
+            "run",
+            "--chatgpt",
+            "--",
+            "codex",
+            "--apply",
+            "--project",
+            "child",
+        ][..],
+    ] {
+        let cli = Cli::try_parse_from(argv).unwrap();
+        assert_eq!(cli.project, Path::new("."));
+        let Commands::Run {
+            apply,
+            chatgpt,
+            agent,
+            ..
+        } = cli.command
+        else {
+            panic!("expected run")
+        };
+        assert!(!apply);
+        assert!(chatgpt);
+        assert_eq!(agent, ["codex", "--apply", "--project", "child"]);
+    }
 }

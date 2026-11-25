@@ -1,0 +1,19 @@
+{
+  "name": "runboundary",
+  "description": "Native macOS CLI that runs coding agents in a Seatbelt sandbox with a filtered project workspace",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/GopalNagamani/agentvault.git"
+  },
+  "bin": {
+    "runb": "bin/runb"
+  },
+  "os": ["darwin"],
+  "cpu": ["arm64"],
+  "files": ["bin/runb"],
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
+  }
+}

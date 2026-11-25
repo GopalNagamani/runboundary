@@ -12,7 +12,7 @@ pub fn execute(root: &Path, check: bool) -> Result<i32> {
     let config = Config::load(root)?;
     let backend = Backend::select(root, &config)?;
     let dir = Dir::open(root)?;
-    println!("AgentVault Toolchains\n");
+    println!("RunBoundary Toolchains\n");
     for (label, marker) in [
         ("Node/web", "package.json"),
         ("Rust", "Cargo.toml"),
@@ -49,7 +49,7 @@ pub fn execute(root: &Path, check: bool) -> Result<i32> {
     }
     println!("[INFO] Version checks do not certify a complete SDK build or device workflow.");
     if !check {
-        println!("Run agentvault tools --check to execute checks inside the OS sandbox.");
+        println!("Run runb tools --check to execute checks inside the OS sandbox.");
         return Ok(0);
     }
     let matcher = Matcher::new(&config)?;

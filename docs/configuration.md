@@ -1,6 +1,17 @@
 # Configuration reference
 
-The complete default configuration is [examples/agentvault.yaml](../examples/agentvault.yaml). Only agentvault.yaml in the selected project is loaded. Unknown fields, oversized configuration files (>128 KiB), YAML errors, symlinked/multiply-linked configurations, and unsupported versions are rejected.
+RunBoundary loads `runboundary.yaml` from the selected project and stores project
+state in `.runboundary/`. See the [default policy](../examples/runboundary.yaml).
+RunBoundary rejects unknown fields, files over 128 KiB, invalid YAML, symlinked
+or multiply linked configurations, and unsupported versions.
+
+If you used a development build before the rename, stop any active sessions and
+rename `agentvault.yaml` to `runboundary.yaml` to retain your policy. If the new
+destination is absent, rename `.agentvault/` to `.runboundary/` to retain audit
+logs and pending reviews. Keep retained workspaces and recovery directories in
+place. Saved login adapter approvals can be moved from `~/.config/agentvault/`
+to `~/.config/runboundary/` if the new directory is absent, or set up again with
+`runb auth setup`.
 
 | Field | Accepted behavior |
 | --- | --- |
@@ -20,7 +31,7 @@ Patterns use globset relative-path semantics; `**/` covers any nesting level inc
 
 Precedence is deterministic:
 
-1. Always exclude .git, .aws, .ssh, .kube, .codex, .claude directory/path components, agentvault.yaml components, and every component starting with .agentvault. Unsafe relative paths also refuse access.
+1. Always exclude .git, .aws, .ssh, .kube, .codex, .claude directory/path components, runboundary.yaml components, and every component starting with .runboundary. Unsafe relative paths also refuse access.
 2. The built-in sensitive globs remain mandatory even if removed from YAML.
 3. The two named template exceptions may override the default .env.* rule, if listed in allowed. An additional custom protection such as **/.env.example or **/*.example wins over that exception. A template inside an always-excluded directory remains excluded.
 4. Every other protected match wins. Otherwise copy the regular file, subject to no-follow and link/metadata validation.
@@ -33,7 +44,7 @@ Authentication is separate from YAML: `--auth-env OPENAI_API_KEY` and `--auth-en
 
 ## Platform-specific initialization
 
-Provider authentication is optional. AgentVault does not require keys based on
+Provider authentication is optional. RunBoundary does not require keys based on
 the agent executable's name. Without credential flags, the agent decides
 whether its provider needs authentication; host credentials remain excluded.
 Codex API-key login is performed only with explicit `--auth-env OPENAI_API_KEY`.
@@ -49,7 +60,7 @@ keys, or custom corporate CA files. Public CA certificates are an explicit
 runtime exception; project PEM files remain protected and excluded.
 
 `init` selects the current host backend. macOS examples are in
-[examples/agentvault.macos.yaml](../examples/agentvault.macos.yaml).
+[examples/runboundary.macos.yaml](../examples/runboundary.macos.yaml).
 `init --runtime-root /opt/homebrew` explicitly approves that entire read-only
 runtime tree on macOS. It never overwrites an existing policy or auto-converts
 a Linux configuration. The macOS PATH contains approved runtime bins followed

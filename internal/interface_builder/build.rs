@@ -127,8 +127,8 @@ pub fn companion_input(locale: &str) -> PathBuf {
     Path::new("Strings").join(format!("{locale}.strings"))
 }
 
-const LOCALIZATION_DIR: &str = "AgentVaultLocalization";
-const LOCALIZATION_MANIFEST: &str = "AgentVaultLocalization/locales.json";
+const LOCALIZATION_DIR: &str = "RunBoundaryLocalization";
+const LOCALIZATION_MANIFEST: &str = "RunBoundaryLocalization/locales.json";
 const APPLE_STRINGS_MANIFEST: &str = "StringsFiles.plist";
 
 /// Link inputs retain their optional locale, never an arbitrary caller path.
@@ -454,7 +454,7 @@ fn declared_dependencies(
 ) -> Result<Vec<u8>> {
     // This is the bridge's declared I/O graph, not an export of all SDK files
     // read internally by ibtool. ios-build uses fresh DerivedData on every run.
-    let mut data = b"\0agentvault-ib-bridge-v1\0".to_vec();
+    let mut data = b"\0runboundary-ib-bridge-v1\0".to_vec();
     let paths = inputs
         .keys()
         .map(|p| (0x10, work.join("Inputs").join(p)))
@@ -547,7 +547,7 @@ pub fn execute_with_services(
         .resolve("ibtoold")
         .context("resolve approved ibtoold compiler")?;
     let temp = tempfile::Builder::new()
-        .prefix("agentvault-ib-job-")
+        .prefix("runboundary-ib-job-")
         .permissions(std::fs::Permissions::from_mode(0o700))
         .tempdir()
         .context("create private compiler job directory")?;
@@ -919,7 +919,10 @@ mod tests {
             b"translation".to_vec(),
         );
         job.validate(&files).unwrap();
-        files.insert(Path::new(name).join("AgentVaultLocalization/extra"), vec![]);
+        files.insert(
+            Path::new(name).join("RunBoundaryLocalization/extra"),
+            vec![],
+        );
         assert!(job.validate(&files).is_err());
         for invalid in [
             "../Main.storyboardc",
@@ -959,6 +962,6 @@ mod tests {
             Path::new("/build/App.app"),
         )
         .unwrap();
-        assert_eq!(remapped,b"\0agentvault-ib-bridge-v1\0\x10/copy/View.xib\0\x40/build/App.app/View.nib\0\x40/build/View.plist\0");
+        assert_eq!(remapped,b"\0runboundary-ib-bridge-v1\0\x10/copy/View.xib\0\x40/build/App.app/View.nib\0\x40/build/View.plist\0");
     }
 }

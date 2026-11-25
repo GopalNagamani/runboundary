@@ -34,7 +34,7 @@ impl Workspace {
 }
 pub fn prepare(root: &Dir, matcher: &Matcher) -> Result<Workspace> {
     let temp = tempfile::Builder::new()
-        .prefix("agentvault-work-")
+        .prefix("runboundary-work-")
         .permissions(std::fs::Permissions::from_mode(0o700))
         .tempdir()?;
     let directory = temp.path().join("workspace");

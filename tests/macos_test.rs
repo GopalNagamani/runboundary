@@ -1,6 +1,6 @@
 //! REAL macOS process tests. Run explicitly from Terminal, not a managed sandbox.
 #![cfg(target_os = "macos")]
-use agentvault::{
+use runboundary::{
     policy::{config::Config, matcher::Matcher},
     sandbox::{backend::Backend, process},
     security::paths::Dir,
@@ -56,7 +56,7 @@ impl Fixture {
             std::fs::write(project.path().join(name), data).unwrap();
         }
         let mut config = Config::for_host();
-        if let Some(root) = std::env::var_os("AGENTVAULT_TEST_RUNTIME_ROOT") {
+        if let Some(root) = std::env::var_os("RUNBOUNDARY_TEST_RUNTIME_ROOT") {
             config.sandbox.runtime_roots.push(PathBuf::from(root));
         }
         let backend = Backend::select(project.path(), &config).unwrap();
@@ -328,7 +328,7 @@ fn process_data_comparison(f: Fixture, diagnostic: bool) {
             let mut descendant = vec![
                 "-c".into(),
                 "\"$@\"".into(),
-                "agentvault-synthetic-descendant".into(),
+                "runboundary-synthetic-descendant".into(),
                 python.to_str().unwrap().into(),
             ];
             descendant.extend(args.clone());
@@ -474,9 +474,9 @@ fn approved_chatgpt_copy_is_private_and_host_auth_is_inaccessible() {
     let bytes = br#"{"auth_mode":"chatgpt","tokens":{"id_token":"fake-id","access_token":"fake-access","refresh_token":"fake-refresh","account_id":"fake-account"},"unrelated":"must-not-import"}"#;
     std::fs::write(&source, bytes).unwrap();
     std::fs::set_permissions(&source, std::fs::Permissions::from_mode(0o600)).unwrap();
-    agentvault::security::codex_auth::import(&source, std::path::Path::new(&f.env["HOME"]))
+    runboundary::security::codex_auth::import(&source, std::path::Path::new(&f.env["HOME"]))
         .unwrap();
-    agentvault::security::codex_auth::configure(&mut f.env);
+    runboundary::security::codex_auth::configure(&mut f.env);
     ok(f.shell(
         r#"set -eu
 [ -f "$CODEX_HOME/auth.json" ]

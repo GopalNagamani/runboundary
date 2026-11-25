@@ -4,7 +4,7 @@ pub fn require() -> Result<()> {
         bail!("the Bubblewrap backend requires Linux; configure seatbelt on macOS. No agent was launched");
     }
     if unsafe { libc::geteuid() } == 0 {
-        bail!("run AgentVault as an unprivileged user, not root");
+        bail!("run RunBoundary as an unprivileged user, not root");
     }
     Ok(())
 }

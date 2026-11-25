@@ -1,6 +1,6 @@
 //! Explicit internet diagnostic, separate from deterministic OS security tests.
 #![cfg(target_os = "macos")]
-use agentvault::{
+use runboundary::{
     policy::{config::Config, matcher::Matcher},
     sandbox::{backend::Backend, process},
     security::paths::Dir,
@@ -59,7 +59,7 @@ fn diagnose_macos_provider_network() {
     let project = tempfile::tempdir().unwrap();
     let mut config = Config::for_host();
     config.sandbox.runtime_roots.push(PathBuf::from(
-        std::env::var_os("AGENTVAULT_TEST_RUNTIME_ROOT")
+        std::env::var_os("RUNBOUNDARY_TEST_RUNTIME_ROOT")
             .expect("explicit runtime approval is required"),
     ));
     let backend = Backend::select(project.path(), &config).unwrap();

@@ -8,7 +8,7 @@ $sourceFile = Join-Path $repoRoot 'internal\platform\windows_paths.rs'
 $resultsDir = Join-Path $repoRoot 'test-results'
 New-Item -ItemType Directory -Force -Path $resultsDir | Out-Null
 $reportFile = Join-Path $resultsDir ('windows-foundation-' + [DateTime]::UtcNow.ToString('yyyyMMddTHHmmssfffZ') + '.log')
-$tempRoot = Join-Path ([IO.Path]::GetTempPath()) ('agentvault-foundation-' + [Guid]::NewGuid().ToString('N'))
+$tempRoot = Join-Path ([IO.Path]::GetTempPath()) ('runboundary-foundation-' + [Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $tempRoot | Out-Null
 $testBinary = Join-Path $tempRoot 'windows-path-tests.exe'
 
@@ -31,11 +31,11 @@ function Invoke-Check([string]$Program, [string[]]$Arguments) {
 }
 
 try {
-    Write-Report 'AgentVault Windows foundation checks'
+    Write-Report 'RunBoundary Windows foundation checks'
     Write-Report ('Report: ' + $reportFile)
     Write-Report ('Windows: ' + [Environment]::OSVersion.VersionString)
     Write-Report 'Scope: lexical Windows path validation only; no agent or AppContainer is launched.'
-    Write-Report 'The main AgentVault CLI still requires a Windows filesystem/process backend.'
+    Write-Report 'The main RunBoundary CLI still requires a Windows filesystem/process backend.'
     $rustCompiler = (Get-Command rustc -CommandType Application -ErrorAction Stop).Source
     if ((Invoke-Check -Program $rustCompiler -Arguments @('--version')) -ne 0) { throw 'rustc version check failed' }
     Write-Report 'Compiling the standalone foundation tests...'

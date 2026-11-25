@@ -1,13 +1,13 @@
 # Architecture and implementation decisions
 
-AgentVault is a Rust executable using clap. Cobra and go.mod belong to Go; this implementation uses Cargo.toml and Cargo.lock. Linux uses Bubblewrap; experimental native macOS uses Seatbelt through sandbox-exec. Windows sandboxing is unsupported. See macos.md for the distinct native boundary and unverified release gates.
+RunBoundary is a Rust executable using clap. Cobra and go.mod belong to Go; this implementation uses Cargo.toml and Cargo.lock. Linux uses Bubblewrap; experimental native macOS uses Seatbelt through sandbox-exec. Windows sandboxing is unsupported. See macos.md for the distinct native boundary and unverified release gates.
 
-The trusted computing base comprises the host kernel, non-setuid administrator-installed Bubblewrap on Linux or Seatbelt on macOS, AgentVault, its dependencies, and the administrator-managed runtime mounts. The agent, its subprocesses, project code, and returned workspace are untrusted. The invoking developer, host administrator, host processes with the same UID, and concurrent malicious host writers are outside this boundary. This is filesystem confinement, not a VM boundary.
+The trusted computing base comprises the host kernel, non-setuid administrator-installed Bubblewrap on Linux or Seatbelt on macOS, RunBoundary, its dependencies, and the administrator-managed runtime mounts. The agent, its subprocesses, project code, and returned workspace are untrusted. The invoking developer, host administrator, host processes with the same UID, and concurrent malicious host writers are outside this boundary. This is filesystem confinement, not a VM boundary.
 
 ## Execution path
 
 1. Canonicalize the explicitly selected project (default: current directory; no Git-root guessing).
-2. Read a single-link regular agentvault.yaml using descriptor-relative no-follow operations. Reject unknown fields and policies that weaken the mandatory baseline.
+2. Read a single-link regular runboundary.yaml using descriptor-relative no-follow operations. Reject unknown fields and policies that weaken the mandatory baseline.
 3. Resolve the requested executable only in administrator-managed installation directories. Resolve symlinks then check root ownership, executable mode, and every ancestor for group/other write permission. Reject setuid/setgid installations.
 4. Traverse the project through directory descriptors. Test exclusions before opening file contents. Reject special files and hard links. Read symlink text without following it; support only relative, direct links to permitted regular files in the snapshot, and recreate them after copying all regular files. Reject outside/protected targets, chains and directory links. Compare inode/device/mode/link count/timestamps/size before and after reading. Refuse observed races and resource-limit overruns.
 5. Create a 0700 temporary parent and an isolated workspace child. The parent is never mounted; the agent cannot expose the temporary workspace to other host users merely by changing the mounted child permissions. Copy regular files with owner read/write and original owner executable bit. Record hashes and identities of permitted files only.
@@ -26,7 +26,7 @@ Networking is shared with the host. No claims of network DLP, localhost-service 
 
 ## Change application
 
-A retained review record lives outside the sandbox in .agentvault and contains hashes, original file identities, and the private workspace location. Review previews show only permitted files, with terminal controls escaped and a 64 KiB preview cap. Host baseline conflicts refuse application. Output is revalidated immediately before staging. Protected paths, links, special files, and path traversal refuse the entire sync.
+A retained review record lives outside the sandbox in .runboundary and contains hashes, original file identities, and the private workspace location. Review previews show only permitted files, with terminal controls escaped and a 64 KiB preview cap. Host baseline conflicts refuse application. Output is revalidated immediately before staging. Protected paths, links, special files, and path traversal refuse the entire sync.
 
 All writes use pinned parent descriptors and no-follow traversal. Replacement originals are renamed into a private recovery directory; staged files are installed with atomic no-replace renames. A durable intent journal precedes each operation. Synchronous errors attempt rollback; original bytes remain available in recovery storage. Multi-file synchronization is NOT globally atomic. Crash/power failure, filesystem errors, or a malicious concurrent same-UID host writer require manual recovery. See recovery.md. The sandbox cannot race host synchronization because it has no host project mount. Concurrent ordinary developer edits detected by snapshot checks cause refusal; pause editors/build tools during approval.
 
@@ -34,7 +34,7 @@ All writes use pinned parent descriptors and no-follow traversal. Replacement or
 
 Structured JSONL records cover policy acceptance, probes, launch requests, exits, rejected output, retained workspaces, and synchronization. They never include command arguments, token values, file contents, or raw backend errors. Bubblewrap does not provide per-filesystem-denial events. A launch request is not proof the executable initialized; local isolation probes and process exit are separate events. The audit log is developer-owned and is not tamper-proof against the host owner or administrator.
 
-Backend reference: [Bubblewrap manual](https://manpages.debian.org/bookworm/bubblewrap/bwrap.1.en.html), including namespace, nested-user-namespace, mount, capability, and terminal-session options. AgentVault must still verify these options on the deployed host; documentation is not execution evidence.
+Backend reference: [Bubblewrap manual](https://manpages.debian.org/bookworm/bubblewrap/bwrap.1.en.html), including namespace, nested-user-namespace, mount, capability, and terminal-session options. RunBoundary must still verify these options on the deployed host; documentation is not execution evidence.
 
 ## Native macOS extension
 
