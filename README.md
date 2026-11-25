@@ -4,6 +4,13 @@ A Rust CLI that launches coding agents in a mandatory OS sandbox with a copied, 
 
 RunBoundary excludes sensitive project paths before copying files and keeps the original project outside the agent’s approved filesystem access. It never falls back to an unsandboxed launch. Filename patterns decide what is copied; Linux namespaces or macOS Seatbelt rules enforce the configured filesystem boundary. The macOS backend does not provide Linux namespace isolation.
 
+## 60-second demo
+
+[![Watch RunBoundary exclude a fake .env file and review a sandboxed edit](docs/media/runboundary-demo.png)](docs/media/runboundary-demo.mp4)
+
+See how to install RunBoundary on an Apple Silicon Mac, run in a filtered copy,
+and review an edit before applying it to the original project.
+
 ## Release status
 
 | Platform | Status |
