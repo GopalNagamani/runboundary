@@ -19,13 +19,24 @@ runb doctor sh
 runb run sh
 ```
 
+## Update RunBoundary
+
+Run `runb update --check` to check the npm preview from any directory. If an
+update is available, `runb update` offers to install it when you are using an
+interactive terminal and the active global npm installation.
+
+Interactive `runb init`, `runb doctor`, and `runb run` check the preview in the
+background at most once every 24 hours and show available updates on subsequent
+runs. Set `RUNBOUNDARY_NO_UPDATE_CHECK=1` to disable automatic checks.
+
 ## Connect an agent
 
 Install the agent in an approved runtime first. For a Homebrew install, add
 `/opt/homebrew` to `sandbox.runtime_roots` in `runboundary.yaml`, or initialize
 a new project with `runb init --runtime-root /opt/homebrew`.
 
-- Codex with a file-backed ChatGPT login uses `runb run --chatgpt codex`.
+- For Codex with a file-backed ChatGPT login, run `runb run codex` and approve the
+  login prompt. RunBoundary supplies the macOS launch options.
 - Codex with an API key uses `runb run --auth-env OPENAI_API_KEY codex`.
 - Claude Code with an API key uses `runb run --auth-env ANTHROPIC_API_KEY claude`.
 - Freebuff and Hermes use `runb auth setup AGENT` once, then `runb run AGENT`.

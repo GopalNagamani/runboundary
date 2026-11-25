@@ -3,7 +3,7 @@ use crate::security::{auth_adapter::Adapter, paths::Dir};
 use anyhow::{bail, Context, Result};
 use clap::Subcommand;
 use std::{
-    io::{self, Write},
+    io::{self, IsTerminal, Write},
     os::unix::fs::MetadataExt,
     path::{Component, Path, PathBuf},
 };
@@ -63,6 +63,27 @@ pub(super) fn codex_file(
         bail!("host HOME must be absolute");
     }
     Ok(Some(home.join(".codex/auth.json")))
+}
+pub(super) fn interactive_chatgpt_file() -> Result<Option<PathBuf>> {
+    if !io::stdin().is_terminal() || !io::stderr().is_terminal() {
+        return Ok(None);
+    }
+    let file = codex_file("codex", true, None)?.context("missing default Codex login path")?;
+    Ok(file.try_exists()?.then_some(file))
+}
+
+pub(super) fn confirm_chatgpt() -> Result<bool> {
+    eprintln!(
+        "Codex can read your ChatGPT login tokens from a temporary copy during this session."
+    );
+    eprint!("Use your ChatGPT login for this session? [y/N] ");
+    io::stderr().flush()?;
+    let mut answer = String::new();
+    io::stdin().read_line(&mut answer)?;
+    Ok(matches!(
+        answer.trim().to_ascii_lowercase().as_str(),
+        "y" | "yes"
+    ))
 }
 pub fn selected(
     agent: &str,

@@ -244,6 +244,11 @@ pub fn agent_entrypoint_with_auth(
         0..0,
         ["-c".into(), "cli_auth_credentials_store=\"file\"".into()],
     );
+    if cfg!(target_os = "macos") && args.is_empty() {
+        // The outer Seatbelt sandbox is mandatory. Codex cannot start a second
+        // Seatbelt sandbox inside it or use a shared server for this launch.
+        arguments.extend(["--no-daemon", "--sandbox", "danger-full-access"].map(String::from));
+    }
     Ok((executable.to_owned(), arguments))
 }
 #[cfg(all(test, target_os = "macos"))]

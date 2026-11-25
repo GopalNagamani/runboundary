@@ -1,6 +1,6 @@
 [package]
 name = "runboundary"
-version = "0.1.1"
+version = "0.1.4"
 edition = "2021"
 license = "Apache-2.0"
 description = "Fail-closed Linux and macOS filesystem sandbox for coding agents"
@@ -23,6 +23,7 @@ serde_json = "1.0.154"
 sha2 = "0.10"
 signal-hook = "0.3"
 tempfile = "3.27.0"
+semver = "1.0"
 
 [dev-dependencies]
 
