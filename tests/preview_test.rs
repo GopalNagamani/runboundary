@@ -1,5 +1,5 @@
 //! Real preview security tests are opt-in and require a supported OS sandbox.
-use agentvault::{
+use runboundary::{
     policy::{config::Config, matcher::Matcher},
     security::{audit, paths::Dir},
     workspace::prepare::{self, Workspace},
@@ -15,12 +15,12 @@ impl Session {
         let root = tempfile::tempdir().unwrap();
         let mut config = Config::for_host();
         if cfg!(target_os = "macos") {
-            if let Some(runtime) = std::env::var_os("AGENTVAULT_TEST_RUNTIME_ROOT") {
+            if let Some(runtime) = std::env::var_os("RUNBOUNDARY_TEST_RUNTIME_ROOT") {
                 config.sandbox.runtime_roots.push(runtime.into());
             }
         }
         std::fs::write(
-            root.path().join("agentvault.yaml"),
+            root.path().join("runboundary.yaml"),
             serde_yaml::to_string(&config).unwrap(),
         )
         .unwrap();
@@ -30,7 +30,7 @@ impl Session {
         let work = prepare::prepare(&Dir::open(root.path()).unwrap(), &matcher).unwrap();
         std::fs::write(work.path().join("source.txt"), "agent edit").unwrap();
         audit::log(root.path(), "test", "synthetic retained preview session").unwrap();
-        let id = agentvault::cli::review::retain(
+        let id = runboundary::cli::review::retain(
             root.path(),
             work.path().to_owned(),
             work.baseline.clone(),
@@ -39,7 +39,7 @@ impl Session {
         Self { root, work, id }
     }
     fn preview(&self) -> Command {
-        let mut command = Command::new(env!("CARGO_BIN_EXE_agentvault"));
+        let mut command = Command::new(env!("CARGO_BIN_EXE_runb"));
         command.args([
             "--project",
             self.root.path().to_str().unwrap(),
@@ -51,31 +51,17 @@ impl Session {
 }
 #[test]
 fn preview_cli_requires_a_command_and_valid_port() {
-    use agentvault::cli::Cli;
     use clap::Parser;
-    assert!(Cli::try_parse_from(["agentvault", "preview", "session"]).is_err());
+    use runboundary::cli::{Cli, Commands};
+    assert!(Cli::try_parse_from(["runb", "preview", "session"]).is_err());
+    assert!(
+        Cli::try_parse_from(["runb", "preview", "session", "--port", "0", "--", "sh"]).is_err()
+    );
+    assert!(
+        Cli::try_parse_from(["runb", "preview", "session", "--port", "5173", "--", "sh"]).is_err()
+    );
     assert!(Cli::try_parse_from([
-        "agentvault",
-        "preview",
-        "session",
-        "--port",
-        "0",
-        "--",
-        "sh"
-    ])
-    .is_err());
-    assert!(Cli::try_parse_from([
-        "agentvault",
-        "preview",
-        "session",
-        "--port",
-        "5173",
-        "--",
-        "sh"
-    ])
-    .is_err());
-    assert!(Cli::try_parse_from([
-        "agentvault",
+        "runb",
         "preview",
         "session",
         "--allow-network-listen",
@@ -87,6 +73,22 @@ fn preview_cli_requires_a_command_and_valid_port() {
         "dev"
     ])
     .is_ok());
+    let cli = Cli::try_parse_from([
+        "runb", "preview", "session", "npm", "run", "dev", "--", "--port", "5173",
+    ])
+    .unwrap();
+    let Commands::Preview {
+        command,
+        allow_network_listen,
+        port,
+        ..
+    } = cli.command
+    else {
+        panic!("expected preview")
+    };
+    assert_eq!(command, ["npm", "run", "dev", "--", "--port", "5173"]);
+    assert!(!allow_network_listen);
+    assert!(port.is_empty());
 }
 #[test]
 fn preview_and_apply_refuse_a_busy_session() {
@@ -94,7 +96,7 @@ fn preview_and_apply_refuse_a_busy_session() {
     let root = Dir::open(session.root.path()).unwrap();
     let _lock = root
         .lock(Path::new(&format!(
-            ".agentvault/session-{}.lock",
+            ".runboundary/session-{}.lock",
             session.id
         )))
         .unwrap();
@@ -106,7 +108,7 @@ fn preview_and_apply_refuse_a_busy_session() {
     assert!(!result.status.success());
     assert!(String::from_utf8_lossy(&result.stderr).contains("session is busy"));
     assert!(
-        agentvault::cli::review::execute(session.root.path(), &session.id, true, false).is_err()
+        runboundary::cli::review::execute(session.root.path(), &session.id, true, false).is_err()
     );
     assert_eq!(
         std::fs::read(session.root.path().join("source.txt")).unwrap(),
@@ -131,7 +133,7 @@ fn preview_rejects_a_substituted_workspace_directory() {
 fn preview_tcp_listeners_require_explicit_opt_in_and_keep_process_deny_last() {
     for allow in [false, true] {
         let mut profile = "(version 1)\n(deny default)\n(deny process-info*)\n".to_string();
-        agentvault::sandbox::seatbelt::configure_preview_network(&mut profile, allow).unwrap();
+        runboundary::sandbox::seatbelt::configure_preview_network(&mut profile, allow).unwrap();
         let action = if allow { "allow" } else { "deny" };
         assert!(profile.contains(&format!(
             "({action} network-bind network-inbound (local tcp))"
@@ -189,7 +191,7 @@ exit 7"#,
         .unwrap()
         .join("sandbox-home")
         .exists());
-    agentvault::cli::review::execute(session.root.path(), &session.id, true, false).unwrap();
+    runboundary::cli::review::execute(session.root.path(), &session.id, true, false).unwrap();
     assert_eq!(
         std::fs::read(session.root.path().join("source.txt")).unwrap(),
         b"preview edit"
@@ -211,7 +213,7 @@ fn protected_preview_output_is_rejected_and_cannot_apply() {
     assert!(!output.status.success());
     assert!(String::from_utf8_lossy(&output.stderr).contains("unsafe preview output rejected"));
     assert!(
-        agentvault::cli::review::execute(session.root.path(), &session.id, true, false).is_err()
+        runboundary::cli::review::execute(session.root.path(), &session.id, true, false).is_err()
     );
     assert_eq!(
         std::fs::read(session.root.path().join(".env")).unwrap(),
@@ -259,7 +261,7 @@ server.settimeout(10)
 open('preview-ready.txt','w').write('ready')
 conn,_=server.accept()
 conn.recv(4096)
-conn.sendall(b'HTTP/1.1 200 OK\r\nContent-Length: 20\r\nConnection: close\r\n\r\nAGENTVAULT_PREVIEW_OK')
+conn.sendall(b'HTTP/1.1 200 OK\r\nContent-Length: 22\r\nConnection: close\r\n\r\nRUNBOUNDARY_PREVIEW_OK')
 conn.close()
 server.close()
 "#;
@@ -314,7 +316,7 @@ server.close()
         .unwrap();
     let mut response = String::new();
     browser.read_to_string(&mut response).unwrap();
-    assert!(response.contains("AGENTVAULT_PREVIEW_OK"));
+    assert!(response.contains("RUNBOUNDARY_PREVIEW_OK"));
     loop {
         if let Some(status) = server.0.try_wait().unwrap() {
             assert!(status.success());

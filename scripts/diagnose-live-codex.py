@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Bounded real Codex requests through AgentVault; never logs raw credentials."""
+"""Bounded real Codex requests through RunBoundary; never logs raw credentials."""
 import argparse
 import datetime
 import json
@@ -13,9 +13,9 @@ import tempfile
 import time
 import unicodedata
 
-MARKER = "AGENTVAULT_LIVE_CODEX_OK"
+MARKER = "RUNBOUNDARY_LIVE_CODEX_OK"
 OUTPUT_LIMIT = 256 * 1024
-PROVIDER_ID = "agentvault-diagnostic"
+PROVIDER_ID = "runboundary-diagnostic"
 
 
 def provider_options(websockets):
@@ -24,7 +24,7 @@ def provider_options(websockets):
     prefix = f"model_providers.{PROVIDER_ID}."
     settings = [
         ("model_provider", PROVIDER_ID),
-        (prefix + "name", "AgentVault OpenAI diagnostic"),
+        (prefix + "name", "RunBoundary OpenAI diagnostic"),
         (prefix + "base_url", "https://api.openai.com/v1"),
         (prefix + "env_key", "OPENAI_API_KEY"),
         (prefix + "wire_api", "responses"),
@@ -74,7 +74,7 @@ def capture(command, env, timeout=60, limit=OUTPUT_LIMIT):
             if time.monotonic() >= deadline:
                 timed_out = True
                 if child.poll() is None:
-                    # AgentVault forwards this signal to its sandbox process.
+                    # RunBoundary forwards this signal to its sandbox process.
                     child.send_signal(signal.SIGTERM)
                     try:
                         child.wait(timeout=5)
@@ -157,7 +157,7 @@ def main():
     if not key:
         parser.error("OPENAI_API_KEY must be set in your Terminal; never pass it as an argument")
     repo = Path(__file__).resolve().parent.parent
-    binary = repo / "target/debug/agentvault"
+    binary = repo / "target/debug/runb"
     directory = repo / "test-results"
     directory.mkdir(exist_ok=True)
     stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
@@ -170,14 +170,14 @@ def main():
             log.write(safe + "\n")
             log.flush()
 
-        emit(f"AgentVault bounded live Codex verification\nReport: {report}")
+        emit(f"RunBoundary bounded live Codex verification\nReport: {report}")
         emit("Uses your explicitly approved API key for up to two short model requests. API charges may apply.")
         emit("Fresh synthetic project; no host login cache, raw credential logs, or policy relaxation.")
-        # AgentVault filters this further; unrelated host credentials/proxies are
+        # RunBoundary filters this further; unrelated host credentials/proxies are
         # deliberately absent even from the diagnostic parent command's env.
         env = {"PATH": "/usr/bin:/bin:/usr/sbin:/sbin", "TERM": "dumb",
                "LANG": "C", "OPENAI_API_KEY": key}
-        with tempfile.TemporaryDirectory(prefix="agentvault-live-codex-", dir="/private/tmp") as tmp:
+        with tempfile.TemporaryDirectory(prefix="runboundary-live-codex-", dir="/private/tmp") as tmp:
             project = Path(tmp)
             (project / ".env").write_text("FAKE_SECRET=synthetic-only\n")
             base = [str(binary), "--project", str(project)]

@@ -56,8 +56,8 @@ pub fn execute(
         "Compiled NIB retained at {:?}. Original project unchanged.",
         output
     );
-    println!("Review: agentvault review {session} --diff");
-    println!("Approve after review: agentvault review {session} --apply");
+    println!("Review: runb diff {session}");
+    println!("Approve after review: runb apply {session}");
     audit::log(
         root,
         "xib_compile_completed",

@@ -13,20 +13,20 @@ fi
 repo_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$repo_dir"
 if ! command -v cargo >/dev/null; then
-  if [ -x /private/tmp/agentvault-toolchain/bin/cargo ]; then
-    export PATH="/private/tmp/agentvault-toolchain/bin:$PATH"
-    export CARGO_HOME=/private/tmp/agentvault-cargo
+  if [ -x /private/tmp/runboundary-toolchain/bin/cargo ]; then
+    export PATH="/private/tmp/runboundary-toolchain/bin:$PATH"
+    export CARGO_HOME=/private/tmp/runboundary-cargo
   else
     echo 'Install a Rust stable toolchain first.' >&2
     exit 1
   fi
 fi
-export AGENTVAULT_TEST_XCODE_APP="$2"
-export AGENTVAULT_TEST_SIMULATOR_RUNTIME="$4"
+export RUNBOUNDARY_TEST_XCODE_APP="$2"
+export RUNBOUNDARY_TEST_SIMULATOR_RUNTIME="$4"
 mkdir -p test-results
 report="$repo_dir/test-results/macos-xib-broker-$(date -u +%Y%m%dT%H%M%SZ).log"
 {
-  printf 'AgentVault constrained XIB broker tests\nReport: %s\n' "$report"
+  printf 'RunBoundary constrained XIB broker tests\nReport: %s\n' "$report"
   sw_vers
   printf 'Explicit compiler-only approvals: Xcode=%s; runtime=%s; SimLaunchHost-arm64\n' "$2" "$4"
   echo 'Tests use synthetic inputs and canaries. No project scripts, credentials, device boot or session-creation requests.'

@@ -4,21 +4,21 @@
 set -euo pipefail
 umask 077
 repo_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-vm_name=agentvault-security-check
+vm_name=runboundary-security-check
 if [ "$#" -ne 0 ]; then
   echo 'Usage: bash scripts/configure-multipass-apparmor.sh' >&2
   exit 2
 fi
 command -v multipass >/dev/null
 multipass start "$vm_name"
-task_tmp=$(mktemp -d "${TMPDIR:-/tmp}/agentvault-apparmor.XXXXXX")
+task_tmp=$(mktemp -d "${TMPDIR:-/tmp}/runboundary-apparmor.XXXXXX")
 trap 'rm -rf -- "$task_tmp"' EXIT
 cat > "$task_tmp/configure.sh" <<'GUEST'
 #!/usr/bin/env bash
 set -euo pipefail
 umask 077
-exec > >(tee "$HOME/agentvault-apparmor-setup.log") 2>&1
-printf 'AgentVault dedicated VM AppArmor setup: %s\n' "$(date -u)"
+exec > >(tee "$HOME/runboundary-apparmor-setup.log") 2>&1
+printf 'RunBoundary dedicated VM AppArmor setup: %s\n' "$(date -u)"
 if [ "$(id -u)" -eq 0 ]; then
   echo 'Start this script as the ordinary ubuntu user.' >&2
   exit 1
@@ -37,11 +37,11 @@ sudo -n test -r /etc/apparmor.d/abi/4.0
 sudo -n test -r /sys/kernel/security/apparmor/profiles
 printf '\nInstalling a reviewed upstream profile for /usr/bin/bwrap in this VM.\n'
 printf 'The profile permits helper setup, then stacks a child profile denying capabilities.\n'
-printf 'AppArmor and all AgentVault sandbox controls remain enabled.\n'
+printf 'AppArmor and all RunBoundary sandbox controls remain enabled.\n'
 profile_url='https://gitlab.com/apparmor/apparmor/-/raw/1979af7710d0f38db6680bd7c19c80902f11f969/profiles/apparmor/profiles/extras/bwrap-userns-restrict'
 expected_sha='634d3d3427c483f123cb5ed53b71ea13040187e07d9f67ca74421d42a6170f0e'
-destination=/etc/apparmor.d/agentvault-bwrap
-scratch=$(mktemp -d /tmp/agentvault-apparmor.XXXXXX)
+destination=/etc/apparmor.d/runboundary-bwrap
+scratch=$(mktemp -d /tmp/runboundary-apparmor.XXXXXX)
 trap 'rm -rf -- "$scratch"' EXIT
 candidate="$scratch/bwrap-userns-restrict"
 curl --proto '=https' --tlsv1.2 --fail --show-error --location "$profile_url" -o "$candidate"
@@ -57,7 +57,7 @@ if sudo -n test -e "$destination" || sudo -n test -L "$destination"; then
   installed_sha=$(sudo -n sha256sum "$destination")
   installed_sha=${installed_sha%% *}
   if [ "$installed_sha" != "$expected_sha" ]; then
-    echo 'Existing AgentVault profile differs; refusing to overwrite administrator policy.' >&2
+    echo 'Existing RunBoundary profile differs; refusing to overwrite administrator policy.' >&2
     exit 1
   fi
   echo 'The identical profile is already installed; reloading it.'
@@ -93,12 +93,12 @@ fi
 printf '\nBoth profiles are loaded in enforce mode; global user-namespace restriction is still 1.\n'
 printf 'Profile installation is not proof of sandbox startup. Run the real test suite next.\n'
 GUEST
-multipass transfer "$task_tmp/configure.sh" "$vm_name:/tmp/agentvault-configure-apparmor.sh"
+multipass transfer "$task_tmp/configure.sh" "$vm_name:/tmp/runboundary-configure-apparmor.sh"
 status=0
-multipass exec "$vm_name" -- bash /tmp/agentvault-configure-apparmor.sh || status=$?
+multipass exec "$vm_name" -- bash /tmp/runboundary-configure-apparmor.sh || status=$?
 mkdir -p "$repo_dir/test-results"
 report="$repo_dir/test-results/multipass-apparmor-setup-$(date -u +%Y%m%dT%H%M%SZ).log"
-if multipass transfer "$vm_name:/home/ubuntu/agentvault-apparmor-setup.log" "$report"; then
+if multipass transfer "$vm_name:/home/ubuntu/runboundary-apparmor-setup.log" "$report"; then
   printf '\nSetup report: %s\n' "$report"
 else
   echo 'Could not retrieve setup report.' >&2

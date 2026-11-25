@@ -1,4 +1,4 @@
-name: Rust and Linux sandbox tests
+name: Rust and OS sandbox tests
 on: [push, pull_request, workflow_dispatch]
 permissions:
   contents: read
@@ -23,6 +23,14 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install -y bubblewrap python3 nodejs
       - run: uname -a && bwrap --version && python3 --version && node --version
       - run: cargo test --locked -- --ignored --nocapture --test-threads=1
+  windows-foundation:
+    # This exercises Windows path rules on Windows. It does not claim that the
+    # RunBoundary CLI or an agent sandbox can run there yet.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: powershell -NoProfile -File scripts\test-windows-foundation.ps1
   macos:
     runs-on: macos-latest
     steps:

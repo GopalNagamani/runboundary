@@ -1,6 +1,6 @@
 //! Opt-in real Xcode compatibility test. Never accepts a license or runs sudo.
 #![cfg(target_os = "macos")]
-use agentvault::{
+use runboundary::{
     policy::{config::Config, matcher::Matcher, toolchains::Ios},
     sandbox::{backend::Backend, process},
     security::paths::Dir,
@@ -12,10 +12,10 @@ use std::{
 };
 
 #[test]
-#[ignore = "REAL Xcode test: explicitly set AGENTVAULT_TEST_XCODE_APP; accepted host license required"]
+#[ignore = "REAL Xcode test: explicitly set RUNBOUNDARY_TEST_XCODE_APP; accepted host license required"]
 fn accepted_xcode_license_is_visible_read_only_without_host_user_preferences() {
-    let app = std::env::var_os("AGENTVAULT_TEST_XCODE_APP").expect(
-        "set AGENTVAULT_TEST_XCODE_APP to explicitly approve Xcode; no automatic SDK import",
+    let app = std::env::var_os("RUNBOUNDARY_TEST_XCODE_APP").expect(
+        "set RUNBOUNDARY_TEST_XCODE_APP to explicitly approve Xcode; no automatic SDK import",
     );
     let root = tempfile::tempdir().unwrap();
     let mut config = Config::for_host();
@@ -31,7 +31,7 @@ fn accepted_xcode_license_is_visible_read_only_without_host_user_preferences() {
         .stderr(Stdio::null())
         .status()
         .unwrap();
-    assert!(host.success(),"host Xcode license check failed; complete Xcode setup manually. AgentVault did not accept any license");
+    assert!(host.success(),"host Xcode license check failed; complete Xcode setup manually. RunBoundary did not accept any license");
     let synthetic = root.path().join("Synthetic.xcworkspace");
     std::fs::create_dir(&synthetic).unwrap();
     std::fs::write(
@@ -43,7 +43,7 @@ fn accepted_xcode_license_is_visible_read_only_without_host_user_preferences() {
     let work = prepare::prepare(&Dir::open(root.path()).unwrap(), &matcher).unwrap();
     let env = backend.environment(&config, &[], work.path()).unwrap();
     backend.probe(root.path(), work.path(), &env).unwrap();
-    let record = agentvault::sandbox::seatbelt::XCODE_LICENSE_RECORD;
+    let record = runboundary::sandbox::seatbelt::XCODE_LICENSE_RECORD;
     let mut cmd = backend
         .command(
             root.path(),
@@ -95,12 +95,27 @@ fn accepted_xcode_license_is_visible_read_only_without_host_user_preferences() {
 #include <dlfcn.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/stat.h>
+#include <string.h>
 #import <Foundation/Foundation.h>
 int main(void) {
     @autoreleasepool {
-        NSString *expected = [NSString stringWithUTF8String:getenv("HOME")];
-        if (![NSHomeDirectory() isEqualToString:expected]) {
-            fprintf(stderr, "Cocoa home differs from private HOME\n"); return 2;
+        const char *home = getenv("HOME");
+        const char *fixed = getenv("CFFIXED_USER_HOME");
+        NSString *actual = NSHomeDirectory();
+        struct stat expectedStat, actualStat;
+        // Cocoa may normalize a system path alias. Require the same existing
+        // directory, not merely a matching string or a shared path prefix.
+        if (!home || !fixed || strcmp(home, fixed) != 0 ||
+            stat(home, &expectedStat) != 0 || !S_ISDIR(expectedStat.st_mode) ||
+            stat([actual fileSystemRepresentation], &actualStat) != 0 ||
+            !S_ISDIR(actualStat.st_mode) ||
+            expectedStat.st_dev != actualStat.st_dev ||
+            expectedStat.st_ino != actualStat.st_ino) {
+            fprintf(stderr, "Cocoa home differs from private HOME: HOME=%s; CFFIXED_USER_HOME=%s; Cocoa=%s\n",
+                home ? home : "[missing]", fixed ? fixed : "[missing]",
+                actual ? [actual fileSystemRepresentation] : "[missing]");
+            return 2;
         }
     }
     void *framework = dlopen("/Library/Developer/PrivateFrameworks/CoreSimulator.framework/CoreSimulator", RTLD_LAZY | RTLD_LOCAL);
@@ -191,7 +206,7 @@ int main(void) {
             .into(),
         "unapproved-probe".into(),
         record.into(),
-        agentvault::sandbox::seatbelt::XCODE_CORE_SIMULATOR.into(),
+        runboundary::sandbox::seatbelt::XCODE_CORE_SIMULATOR.into(),
     ];
     let output = plain_backend
         .command(

@@ -165,7 +165,7 @@ impl Artifact {
         // chosen by the compiler or follow an output-directory link.
         let (parent, name) = destination.parent(output)?;
         let staging = tempfile::Builder::new()
-            .prefix("agentvault-nib-publish-")
+            .prefix("runboundary-nib-publish-")
             .permissions(std::fs::Permissions::from_mode(0o700))
             .tempdir_in(workspace.parent().context("missing session parent")?)?;
         let staged = Dir::open(staging.path())?;
@@ -274,7 +274,7 @@ pub fn compile(
     let backend = Backend::select(project, &compiler_config)?;
     let compiler = backend.resolve("ibtoold")?;
     let temp = tempfile::Builder::new()
-        .prefix("agentvault-xib-")
+        .prefix("runboundary-xib-")
         .permissions(std::fs::Permissions::from_mode(0o700))
         .tempdir()?;
     let work = temp.path().join("workspace");
@@ -476,6 +476,14 @@ fn capture_cancellable(
     limit: Duration,
     external: Option<&AtomicBool>,
 ) -> Result<Capture> {
+    // ChildGroup kills the whole process group on timeout/cancellation. Linux
+    // does not otherwise create a fresh group for commands launched by
+    // Command, so make this captured compiler job its own group leader.
+    #[cfg(target_os = "linux")]
+    {
+        use std::os::unix::process::CommandExt;
+        command.process_group(0);
+    }
     let cancelled = Arc::new(AtomicBool::new(false));
     let mut signals = Signals(vec![]);
     for signal in [libc::SIGINT, libc::SIGTERM] {
@@ -717,13 +725,13 @@ mod tests {
         std::fs::write(&secret, b"SYNTHETIC_XIB_HOST_CANARY").unwrap();
         std::fs::write(outside.path(), b"SYNTHETIC_XIB_OUTSIDE_CANARY").unwrap();
         let runtime = approve_runtime(Path::new(
-            &std::env::var_os("AGENTVAULT_TEST_SIMULATOR_RUNTIME")
+            &std::env::var_os("RUNBOUNDARY_TEST_SIMULATOR_RUNTIME")
                 .expect("explicit runtime approval required"),
         ))
         .unwrap();
         let mut config = Config::for_host();
         config.toolchains.ios = Some(crate::policy::toolchains::Ios {
-            xcode_app: std::env::var_os("AGENTVAULT_TEST_XCODE_APP")
+            xcode_app: std::env::var_os("RUNBOUNDARY_TEST_XCODE_APP")
                 .expect("explicit Xcode approval required")
                 .into(),
         });
@@ -776,7 +784,7 @@ mod tests {
             )
             .unwrap();
         let mut modes = vec![SimulatorServices::Restricted];
-        if std::env::var("AGENTVAULT_TEST_COMPILER_SIMULATOR_SERVICES").as_deref() == Ok("1") {
+        if std::env::var("RUNBOUNDARY_TEST_COMPILER_SIMULATOR_SERVICES").as_deref() == Ok("1") {
             modes.push(SimulatorServices::Enabled);
         }
         for mode in modes {

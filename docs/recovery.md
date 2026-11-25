@@ -1,15 +1,16 @@
 # Synchronization recovery
 
-Application is journaled per file; it is not a filesystem transaction. Stop project editors and build tools before applying. No process-crash or power-loss atomicity is promised. Recovery directories are excluded from future sandbox copies.
+Application is journaled per file; it is not a filesystem transaction. A project-level advisory lock prevents overlapping apply/recovery transactions. Stop project editors and build tools before applying. No process-crash or power-loss atomicity is promised. Recovery directories are excluded from future sandbox copies.
 
-After success, `.agentvault-recovery-*/originals/` contains the original versions of modified/deleted regular files. `journal.jsonl` records intended operations, original-existence flags, and a completion marker after successful application. Added paths have no original version. `staged/` holds any not-yet-installed output. Empty directories created during a failed attempt may remain. Ordinary synchronous failures attempt reverse-order rollback and report rollback errors and the exact recovery path.
+After success, `.runboundary-recovery-*/originals/` contains the original versions of modified/deleted files. Version-2 `journal.jsonl` records each path's expected original and applied content, plus a completion marker. Added paths have no original version. `staged/` holds any not-yet-installed output. Empty directories created during a failed attempt may remain. Ordinary synchronous failures attempt reverse-order rollback and report rollback errors and the exact recovery path.
 
-If an application fails or AgentVault crashes:
+If an application fails or RunBoundary crashes:
 
 1. Stop edits and preserve the reported recovery directory and retained workspace. Make an independent backup of the current project. Do not blindly rerun apply.
-2. Inspect the journal, the current paths, `originals/`, and `staged/`. An intent record can exist without its operation having occurred; it is not a completion record.
-3. For each changed/deleted original that actually exists under `originals/`, compare it with the current project file. Restore that original only after saving any newer edits. For additions, remove only files verified to be the session's additions, saving later edits first.
-4. If rollback reported errors, inspect those paths individually. Protected files are never legitimate synchronization targets; investigate any such path in a journal.
-5. Run tests and inspect your ordinary source diff. Delete recovery directories and temporary workspaces only when satisfied.
+2. From the project root, run `runb recover .runboundary-recovery-ID` with the directory name printed by RunBoundary.
+3. Automatic recovery accepts only version-2 journals and only removes current files that still match the journaled applied content. It checks every path before changing any project file. If a path has newer or unexpected content, recovery refuses the transaction; preserve those edits and use the manual procedure below.
+4. Run tests and inspect your ordinary source diff. Keep recovery directories and temporary workspaces until satisfied.
 
-No automatic crash-recovery command is provided. Filesystem permission or I/O failures can prevent automatic restoration; recovery originals and the journal must be retained for developer inspection. Do not publish them: permitted source files may themselves contain credentials.
+Older recovery directories whose journal has no version-2 content hashes cannot be safely recovered automatically. For those, inspect the journal, current paths, `originals/`, and `staged/` manually. An intent record can exist without its operation having occurred. Restore an original only after saving any newer edits; remove an addition only after confirming it is still the session's output.
+
+Filesystem permission or I/O failures can still interrupt recovery; the journal is left available for another attempt or manual inspection. Do not publish recovery directories: permitted source files may themselves contain credentials.

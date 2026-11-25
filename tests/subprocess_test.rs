@@ -16,7 +16,7 @@ fn exit_codes_preserved() {
 #[test]
 #[ignore = "REAL OS SECURITY TEST: requires unprivileged Linux and working Bubblewrap"]
 fn startup_failure_refuses_execution() {
-    use agentvault::{
+    use runboundary::{
         policy::config::Config,
         sandbox::{bubblewrap, mounts},
         security::environment,
@@ -47,7 +47,7 @@ fn startup_failure_refuses_execution() {
 #[test]
 #[ignore = "REAL OS SECURITY TEST: requires unprivileged Linux and working Bubblewrap"]
 fn privileged_inherited_descriptor_closed() {
-    use agentvault::{
+    use runboundary::{
         policy::config::Config,
         sandbox::{bubblewrap, mounts},
         security::environment,
@@ -75,7 +75,7 @@ fn privileged_inherited_descriptor_closed() {
 #[test]
 #[ignore = "REAL OS SECURITY TEST: requires unprivileged Linux and working Bubblewrap"]
 fn regular_file_stdio_is_refused() {
-    use agentvault::{
+    use runboundary::{
         policy::config::Config,
         sandbox::{bubblewrap, mounts},
         security::environment,

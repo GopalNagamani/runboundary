@@ -1,4 +1,4 @@
-use agentvault::{
+use runboundary::{
     ib_bridge::assets::parse,
     interface_builder::{assets::Options, build::Job},
 };
@@ -115,7 +115,7 @@ fn asset_tag_queries_are_path_free_and_reject_compilation_or_service_options() {
     assert!(call.auxiliary.is_empty());
     assert!(!serde_json::to_string(&call.job).unwrap().contains("/copy"));
     call.job.validate(&fixture::files()).unwrap();
-    let compiler = agentvault::interface_builder::assets::tag_arguments(
+    let compiler = runboundary::interface_builder::assets::tag_arguments(
         catalogs,
         Path::new("/stage/compiler job"),
     )
@@ -159,7 +159,7 @@ fn asset_tag_queries_are_path_free_and_reject_compilation_or_service_options() {
     let mut outside = fixture::files();
     outside.insert("outside.json".into(), b"{}".to_vec());
     assert!(call.job.validate(&outside).is_err());
-    assert!(agentvault::interface_builder::assets::tag_arguments(
+    assert!(runboundary::interface_builder::assets::tag_arguments(
         &["../Assets.xcassets".into()],
         Path::new("/stage"),
     )
@@ -260,7 +260,7 @@ fn asset_options_do_not_allow_commands_paths_runtime_or_service_overrides() {
 #[test]
 #[ignore = "REAL asset compiler and symbol jobs; explicit Xcode/runtime; Terminal required"]
 fn typed_asset_jobs_produce_car_icons_symbols_and_metadata() {
-    use agentvault::{
+    use runboundary::{
         interface_builder::{
             build::{execute_with_services, Files, Format},
             SimulatorServices,
@@ -271,15 +271,15 @@ fn typed_asset_jobs_produce_car_icons_symbols_and_metadata() {
     let project = tempfile::tempdir().unwrap();
     let mut config = Config::for_host();
     config.toolchains.ios = Some(Ios {
-        xcode_app: std::env::var_os("AGENTVAULT_TEST_XCODE_APP")
+        xcode_app: std::env::var_os("RUNBOUNDARY_TEST_XCODE_APP")
             .expect("explicit Xcode required")
             .into(),
     });
     let runtime = PathBuf::from(
-        std::env::var_os("AGENTVAULT_TEST_SIMULATOR_RUNTIME").expect("explicit runtime required"),
+        std::env::var_os("RUNBOUNDARY_TEST_SIMULATOR_RUNTIME").expect("explicit runtime required"),
     );
     let services =
-        if std::env::var("AGENTVAULT_TEST_COMPILER_SIMULATOR_SERVICES").as_deref() == Ok("1") {
+        if std::env::var("RUNBOUNDARY_TEST_COMPILER_SIMULATOR_SERVICES").as_deref() == Ok("1") {
             SimulatorServices::Enabled
         } else {
             SimulatorServices::Restricted
@@ -375,7 +375,7 @@ fn typed_asset_jobs_produce_car_icons_symbols_and_metadata() {
             PathBuf::from("/build/Assets.plist"),
         ),
     ];
-    let remapped = agentvault::ib_bridge::client::remap_dependencies(
+    let remapped = runboundary::ib_bridge::client::remap_dependencies(
         &compiled.files[Path::new("Aux/dependencies")],
         &compiled.stage_root,
         &mappings,
@@ -394,7 +394,7 @@ fn typed_asset_jobs_produce_car_icons_symbols_and_metadata() {
                 objc_symbols: true,
                 symbol_index: true,
                 swift_extensions: Some(false),
-                bundle_identifier: Some("dev.agentvault.Fixture".into()),
+                bundle_identifier: Some("dev.runboundary.Fixture".into()),
                 ..options
             },
         },

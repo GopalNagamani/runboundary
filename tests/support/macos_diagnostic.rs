@@ -1,4 +1,4 @@
-use agentvault::sandbox::process;
+use runboundary::sandbox::process;
 use std::{
     io::Read,
     process::{Command, Stdio},

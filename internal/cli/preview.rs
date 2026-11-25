@@ -82,8 +82,8 @@ pub fn execute(
     for change in changes {
         println!("  {} {:?}", change.kind, change.path);
     }
-    println!("All session changes remain unapplied. Review: agentvault review {id} --diff");
-    println!("Approve after review: agentvault review {id} --apply");
+    println!("All session changes remain unapplied. Review: runb diff {id}");
+    println!("Approve after review: runb apply {id}");
     // The original baseline is intentionally unchanged: review includes agent
     // edits AND build/test artifacts produced during this preview.
     if result.is_err() {
@@ -128,7 +128,7 @@ pub fn command_plan(
         let mut wrapped = vec![
             "-c".into(),
             r#"exec "$@""#.into(),
-            "agentvault-workspace-command".into(),
+            "runboundary-workspace-command".into(),
             executable
                 .to_str()
                 .context("workspace executable path must be UTF-8")?

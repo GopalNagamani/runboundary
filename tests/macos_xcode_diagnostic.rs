@@ -1,6 +1,6 @@
 //! Opt-in workspace discovery diagnostic; never builds a user project.
 #![cfg(target_os = "macos")]
-use agentvault::{
+use runboundary::{
     policy::{config::Config, matcher::Matcher, toolchains::Ios},
     sandbox::{backend::Backend, process},
     security::paths::Dir,
@@ -15,8 +15,8 @@ use diagnostic::{candidate_command, capture};
 #[test]
 #[ignore = "REAL Xcode diagnostic: explicit Xcode bundle approval and Terminal required"]
 fn diagnose_workspace_discovery() {
-    let app = std::env::var_os("AGENTVAULT_TEST_XCODE_APP")
-        .expect("explicit AGENTVAULT_TEST_XCODE_APP approval required");
+    let app = std::env::var_os("RUNBOUNDARY_TEST_XCODE_APP")
+        .expect("explicit RUNBOUNDARY_TEST_XCODE_APP approval required");
     let project = tempfile::tempdir().unwrap();
     let workspace = project.path().join("Synthetic.xcworkspace");
     std::fs::create_dir(&workspace).unwrap();

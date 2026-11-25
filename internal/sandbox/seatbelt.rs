@@ -612,12 +612,12 @@ pub(crate) fn probe_with_access(
     filtered.remove("OPENAI_API_KEY");
     filtered.remove("ANTHROPIC_API_KEY");
     let canary = tempfile::Builder::new()
-        .prefix("agentvault-host-canary-")
+        .prefix("runboundary-host-canary-")
         .tempfile()?;
     std::fs::write(canary.path(), b"SYNTHETIC_PREFLIGHT_CANARY")?;
     let script = r#"
 set -eu
-fail() { printf 'AgentVault macOS isolation check failed: %s\n' "$1" >&2; exit 1; }
+fail() { printf 'RunBoundary macOS isolation check failed: %s\n' "$1" >&2; exit 1; }
 # The canary is present and readable on the host; the sandbox must deny it.
 if /bin/cat "$2" >/dev/null 2>&1; then fail host-canary-readable; fi
 if /bin/ls "$1" >/dev/null 2>&1; then fail original-project-listable; fi
@@ -627,18 +627,18 @@ if /bin/cat "$1/.env" >/dev/null 2>&1; then fail original-env-readable; fi
 [ -z "${SSH_AUTH_SOCK+x}" ] || fail ssh-agent-environment
 [ -z "${DYLD_INSERT_LIBRARIES+x}" ] || fail loader-environment
 [ "${CFFIXED_USER_HOME-}" = "$HOME" ] || fail cocoa-home-not-private
-printf probe > .agentvault-probe || fail workspace-not-writable
-/bin/rm .agentvault-probe || fail workspace-cleanup
+printf probe > .runboundary-probe || fail workspace-not-writable
+/bin/rm .runboundary-probe || fail workspace-cleanup
 printf probe > "$HOME/probe" || fail private-home-not-writable
 /bin/rm "$HOME/probe" || fail private-home-cleanup
 printf probe > "$TMPDIR/probe" || fail private-tmp-not-writable
 /bin/rm "$TMPDIR/probe" || fail private-tmp-cleanup
-printf AGENTVAULT_MACOS_PROBE_OK
+printf RUNBOUNDARY_MACOS_PROBE_OK
 "#;
     let args = vec![
         "-c".into(),
         script.into(),
-        "agentvault-probe".into(),
+        "runboundary-probe".into(),
         text(project)?.into(),
         text(canary.path())?.into(),
     ];
@@ -653,7 +653,7 @@ printf AGENTVAULT_MACOS_PROBE_OK
     )?
     .output()
     .context("macOS sandbox startup or descriptor hardening failed")?;
-    if !result.status.success() || result.stdout != b"AGENTVAULT_MACOS_PROBE_OK" {
+    if !result.status.success() || result.stdout != b"RUNBOUNDARY_MACOS_PROBE_OK" {
         let detail = super::bubblewrap::backend_diagnostic(&result.stderr, env);
         bail!("macOS sandbox startup/isolation probe failed ({}): {}. Nested/managed sessions may prohibit sandbox_apply; run from your own Terminal. No unsandboxed fallback",result.status,detail);
     }

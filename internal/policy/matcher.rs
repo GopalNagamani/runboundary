@@ -1,4 +1,4 @@
-use super::config::Config;
+use super::config::{Config, FILE_NAME, LEGACY_FILE_NAME};
 use anyhow::{bail, Result};
 use globset::{Glob, GlobSet, GlobSetBuilder};
 use std::path::{Component, Path};
@@ -49,8 +49,16 @@ impl Matcher {
             let s = x.to_string_lossy();
             matches!(
                 s.as_ref(),
-                ".git" | ".aws" | ".ssh" | ".kube" | ".codex" | ".claude" | "agentvault.yaml"
-            ) || s.starts_with(".agentvault")
+                ".git"
+                    | ".aws"
+                    | ".ssh"
+                    | ".kube"
+                    | ".codex"
+                    | ".claude"
+                    | FILE_NAME
+                    | LEGACY_FILE_NAME
+            ) || s.starts_with(".runboundary")
+                || s.starts_with(".agentvault")
         }) {
             return true;
         }
@@ -79,6 +87,10 @@ mod tests {
             ".ssh/id_rsa",
             ".aws",
             ".git/config",
+            "runboundary.yaml",
+            ".runboundary/audit.jsonl",
+            "agentvault.yaml",
+            ".agentvault-recovery-old/originals/private.txt",
             "../a",
             ".env.example/x.key",
         ] {

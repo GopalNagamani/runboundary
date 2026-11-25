@@ -11,16 +11,16 @@ if { [ "$#" -ne 4 ] && [ "$#" -ne 5 ]; } || [ "${1:-}" != --xcode-app ] || [ "${
 fi
 repo_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$repo_dir"
-export AGENTVAULT_TEST_XCODE_APP="$2"
-export AGENTVAULT_TEST_SIMULATOR_RUNTIME="$4"
-unset AGENTVAULT_TEST_ALLOW_SIMULATOR_SERVICES
+export RUNBOUNDARY_TEST_XCODE_APP="$2"
+export RUNBOUNDARY_TEST_SIMULATOR_RUNTIME="$4"
+unset RUNBOUNDARY_TEST_ALLOW_SIMULATOR_SERVICES
 if [ "$#" -eq 5 ]; then
-  export AGENTVAULT_TEST_ALLOW_SIMULATOR_SERVICES=1
+  export RUNBOUNDARY_TEST_ALLOW_SIMULATOR_SERVICES=1
 fi
 mkdir -p test-results
 report="$repo_dir/test-results/macos-ibtool-$(date -u +%Y%m%dT%H%M%SZ).log"
 exec > >(tee "$report") 2>&1
-printf 'AgentVault fixed-XIB compilation diagnostic\nReport: %s\n' "$report"
+printf 'RunBoundary fixed-XIB compilation diagnostic\nReport: %s\n' "$report"
 sw_vers
 printf 'Explicit read-only approvals: Xcode=%s; runtime=%s\n' "$2" "$4"
 echo 'Approval trusts the administrator-installed SDK/runtime and macOS admin-group writers.'

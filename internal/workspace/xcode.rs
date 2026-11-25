@@ -352,7 +352,7 @@ pub fn register(text: &str, project: &Path, files: &[PathBuf]) -> Result<(String
         }
         let mut salt = 0u32;
         let id = loop {
-            let hash = Sha256::digest(format!("AgentVault-PBXFileReference:{path_text}:{salt}"));
+            let hash = Sha256::digest(format!("RunBoundary-PBXFileReference:{path_text}:{salt}"));
             let id = hash[..12]
                 .iter()
                 .map(|b| format!("{b:02X}"))

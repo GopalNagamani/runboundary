@@ -12,9 +12,9 @@ class LiveDiagnosticTest(unittest.TestCase):
         for websockets in (True, False):
             args = helpers["provider_options"](websockets)
             self.assertFalse(any("model_providers.openai." in arg for arg in args))
-            self.assertIn('model_provider="agentvault-diagnostic"', args)
-            self.assertIn('model_providers.agentvault-diagnostic.base_url="https://api.openai.com/v1"', args)
-            self.assertIn(f'model_providers.agentvault-diagnostic.supports_websockets={str(websockets).lower()}', args)
+            self.assertIn('model_provider="runboundary-diagnostic"', args)
+            self.assertIn('model_providers.runboundary-diagnostic.base_url="https://api.openai.com/v1"', args)
+            self.assertIn(f'model_providers.runboundary-diagnostic.supports_websockets={str(websockets).lower()}', args)
 
     def test_full_and_masked_credentials_and_terminal_controls_are_redacted(self):
         result = helpers["redact"]("fake-token sk-proj-****1234 \x1b[31m", "fake-token")
@@ -36,8 +36,8 @@ class LiveDiagnosticTest(unittest.TestCase):
         self.assertNotIn("SYNTHETIC", text)
 
     def test_echoed_prompt_is_not_a_verified_reply(self):
-        self.assertFalse(helpers["verified"]("AGENTVAULT_LIVE_CODEX_OK"))
-        self.assertTrue(helpers["verified"]('{"type":"item.completed","item":{"type":"agent_message","text":"AGENTVAULT_LIVE_CODEX_OK"}}'))
+        self.assertFalse(helpers["verified"]("RUNBOUNDARY_LIVE_CODEX_OK"))
+        self.assertTrue(helpers["verified"]('{"type":"item.completed","item":{"type":"agent_message","text":"RUNBOUNDARY_LIVE_CODEX_OK"}}'))
 
     def test_provider_quota_error_stops_transport_retry_but_model_text_does_not(self):
         self.assertTrue(helpers["quota_blocked"]('{"type":"error","message":"Quota exceeded. Check your plan and billing details."}'))

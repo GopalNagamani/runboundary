@@ -1,4 +1,4 @@
-use agentvault::{
+use runboundary::{
     interface_builder::{validate_relative, Artifact, Request, INPUT_LIMIT},
     policy::{config::Config, matcher::Matcher},
     security::paths::Dir,
@@ -170,14 +170,14 @@ fn isolated_compiler_produces_a_nib_without_applying_source() {
     let project = tempfile::tempdir().unwrap();
     std::fs::write(project.path().join(".env"), b"SYNTHETIC_XIB_HOST_CANARY").unwrap();
     let mut config = Config::for_host();
-    config.toolchains.ios = Some(agentvault::policy::toolchains::Ios {
-        xcode_app: std::env::var_os("AGENTVAULT_TEST_XCODE_APP")
+    config.toolchains.ios = Some(runboundary::policy::toolchains::Ios {
+        xcode_app: std::env::var_os("RUNBOUNDARY_TEST_XCODE_APP")
             .expect("explicit Xcode approval required")
             .into(),
     });
-    let runtime = std::env::var_os("AGENTVAULT_TEST_SIMULATOR_RUNTIME")
+    let runtime = std::env::var_os("RUNBOUNDARY_TEST_SIMULATOR_RUNTIME")
         .expect("explicit runtime approval required");
-    let result = agentvault::interface_builder::compile(
+    let result = runboundary::interface_builder::compile(
         project.path(),
         &config,
         Path::new(&runtime),

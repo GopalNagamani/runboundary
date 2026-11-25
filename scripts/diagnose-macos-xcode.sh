@@ -12,11 +12,11 @@ if [ "$#" -ne 2 ] || [ "$1" != --xcode-app ]; then
 fi
 repo_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$repo_dir"
-export AGENTVAULT_TEST_XCODE_APP="$2"
+export RUNBOUNDARY_TEST_XCODE_APP="$2"
 mkdir -p test-results
 report="$repo_dir/test-results/macos-xcode-$(date -u +%Y%m%dT%H%M%SZ).log"
 exec > >(tee "$report") 2>&1
-printf 'AgentVault synthetic Xcode workspace diagnostic\nReport: %s\n' "$report"
+printf 'RunBoundary synthetic Xcode workspace diagnostic\nReport: %s\n' "$report"
 sw_vers
 printf 'Explicit read-only SDK approval: %s\n' "$2"
 echo 'Empty synthetic workspace, no app builds, credentials, signing, license acceptance or policy changes.'

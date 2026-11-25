@@ -16,9 +16,9 @@ if [ -z "${OPENAI_API_KEY:-}" ]; then
 fi
 repo_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$repo_dir"
-if ! command -v cargo >/dev/null && [ -x /private/tmp/agentvault-toolchain/bin/cargo ]; then
-  export PATH="/private/tmp/agentvault-toolchain/bin:$PATH"
-  export CARGO_HOME=/private/tmp/agentvault-cargo
+if ! command -v cargo >/dev/null && [ -x /private/tmp/runboundary-toolchain/bin/cargo ]; then
+  export PATH="/private/tmp/runboundary-toolchain/bin:$PATH"
+  export CARGO_HOME=/private/tmp/runboundary-cargo
 fi
 # Do not expose the API key to build scripts.
 env -u OPENAI_API_KEY -u ANTHROPIC_API_KEY cargo build --locked

@@ -1,6 +1,6 @@
 //! Fixed XIB experiments; helper connections require a separate explicit opt-in.
 #![cfg(target_os = "macos")]
-use agentvault::{
+use runboundary::{
     policy::{config::Config, matcher::Matcher, toolchains::Ios},
     sandbox::{backend::Backend, process},
     security::paths::Dir,
@@ -71,7 +71,7 @@ fn root_controlled(path: &Path) {
 #[ignore = "REAL fixed-XIB diagnostic: explicitly approve Xcode and one installed runtime; Terminal required"]
 fn diagnose_interface_builder() {
     let test_helpers =
-        std::env::var("AGENTVAULT_TEST_ALLOW_SIMULATOR_SERVICES").is_ok_and(|value| value == "1");
+        std::env::var("RUNBOUNDARY_TEST_ALLOW_SIMULATOR_SERVICES").is_ok_and(|value| value == "1");
     if test_helpers {
         assert_eq!(
             std::env::consts::ARCH,
@@ -81,9 +81,9 @@ fn diagnose_interface_builder() {
         println!("Explicit diagnostic-only helper connection approval. Shared host helpers may use account Simulator state; containment is not certified.");
     }
     let app =
-        std::env::var_os("AGENTVAULT_TEST_XCODE_APP").expect("explicit Xcode approval required");
+        std::env::var_os("RUNBOUNDARY_TEST_XCODE_APP").expect("explicit Xcode approval required");
     let runtime = runtime_root(&PathBuf::from(
-        std::env::var_os("AGENTVAULT_TEST_SIMULATOR_RUNTIME")
+        std::env::var_os("RUNBOUNDARY_TEST_SIMULATOR_RUNTIME")
             .expect("explicit installed runtime approval required"),
     ));
     let project = tempfile::tempdir().unwrap();

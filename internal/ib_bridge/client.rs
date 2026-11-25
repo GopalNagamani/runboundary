@@ -338,7 +338,7 @@ fn execute_invocation(bridge: &Path, invocation: Invocation) -> Result<i32> {
         .parent()
         .context("missing private build home")?
         .join("build/DerivedData");
-    if bridge.file_name() != Some(std::ffi::OsStr::new(".agentvault-ib"))
+    if bridge.file_name() != Some(std::ffi::OsStr::new(".runboundary-ib"))
         || settings.derived != expected
     {
         bail!("bridge output root must belong to the current private build home: expected {expected:?}, configured {:?}",settings.derived);

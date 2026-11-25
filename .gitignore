@@ -1,4 +1,6 @@
 /target/
+.runboundary/
+.runboundary-recovery-*/
 .agentvault/
 .agentvault-recovery-*/
 

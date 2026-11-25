@@ -1,4 +1,4 @@
-use agentvault::{
+use runboundary::{
     policy::{
         config::Config,
         matcher::Matcher,
@@ -36,7 +36,7 @@ fn private_build_caches_do_not_import_environment_or_home_state() {
         ("HOME".into(), "/private-session/home".into()),
         ("JAVA_HOME".into(), "/approved/jdk".into()),
     ]);
-    agentvault::policy::toolchains::private_environment(&mut env);
+    runboundary::policy::toolchains::private_environment(&mut env);
     for key in [
         "CARGO_HOME",
         "CARGO_TARGET_DIR",
@@ -65,7 +65,7 @@ fn workspace_executable_plan_preserves_arguments_and_rejects_traversal_links() {
     )
     .unwrap();
     let malicious = "literal; $(touch SHOULD_NOT_RUN)";
-    let (exe, args) = agentvault::cli::preview::command_plan(
+    let (exe, args) = runboundary::cli::preview::command_plan(
         &backend,
         root.path(),
         &["./build task.sh".into(), malicious.into()],
@@ -77,12 +77,13 @@ fn workspace_executable_plan_preserves_arguments_and_rejects_traversal_links() {
     assert!(!root.path().join("SHOULD_NOT_RUN").exists());
     for path in ["./../escape", "./", "./folder/../task"] {
         assert!(
-            agentvault::cli::preview::command_plan(&backend, root.path(), &[path.into()]).is_err()
+            runboundary::cli::preview::command_plan(&backend, root.path(), &[path.into()]).is_err()
         );
     }
     std::os::unix::fs::symlink("build task.sh", root.path().join("alias")).unwrap();
     assert!(
-        agentvault::cli::preview::command_plan(&backend, root.path(), &["./alias".into()]).is_err()
+        runboundary::cli::preview::command_plan(&backend, root.path(), &["./alias".into()])
+            .is_err()
     );
 }
 #[test]
@@ -115,7 +116,7 @@ fn approved_sdk_is_read_only_and_workspace_wrapper_runs_only_in_sandbox() {
     // No host cache or real SDK/credential is imported. /tmp checkouts fail
     // trust validation explicitly rather than weakening permission checks.
     let fixture = tempfile::Builder::new()
-        .prefix(".agentvault-sdk-test-")
+        .prefix(".runboundary-sdk-test-")
         .tempdir_in(std::env::current_dir().unwrap())
         .unwrap();
     std::fs::set_permissions(fixture.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
@@ -140,7 +141,7 @@ fn approved_sdk_is_read_only_and_workspace_wrapper_runs_only_in_sandbox() {
     let mut c = Config::for_host();
     c.toolchains.java = Some(Java { home: sdk.clone() });
     if cfg!(target_os = "macos") {
-        if let Some(runtime) = std::env::var_os("AGENTVAULT_TEST_RUNTIME_ROOT") {
+        if let Some(runtime) = std::env::var_os("RUNBOUNDARY_TEST_RUNTIME_ROOT") {
             c.sandbox.runtime_roots.push(runtime.into());
         }
     }
@@ -168,7 +169,7 @@ printf built > result.txt
     let workspace = work.path().canonicalize().unwrap();
     let env = backend.environment(&c, &[], &workspace).unwrap();
     backend.probe(&project, &workspace, &env).unwrap();
-    let (exe, args) = agentvault::cli::preview::command_plan(
+    let (exe, args) = runboundary::cli::preview::command_plan(
         &backend,
         &workspace,
         &[
@@ -205,7 +206,7 @@ printf built > result.txt
 #[test]
 fn sdk_layout_validation_rejects_external_executables_and_writable_trees() {
     let fixture = tempfile::Builder::new()
-        .prefix(".agentvault-sdk-validation-")
+        .prefix(".runboundary-sdk-validation-")
         .tempdir_in(std::env::current_dir().unwrap())
         .unwrap();
     std::fs::set_permissions(fixture.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
@@ -246,7 +247,7 @@ fn sdk_layout_validation_rejects_external_executables_and_writable_trees() {
 fn tools_detection_does_not_execute_project_scripts_or_print_manifest_contents() {
     let project = tempfile::tempdir().unwrap();
     std::fs::write(
-        project.path().join("agentvault.yaml"),
+        project.path().join("runboundary.yaml"),
         serde_yaml::to_string(&Config::for_host()).unwrap(),
     )
     .unwrap();
@@ -267,7 +268,7 @@ fn tools_detection_does_not_execute_project_scripts_or_print_manifest_contents()
         std::fs::Permissions::from_mode(0o700),
     )
     .unwrap();
-    let output = std::process::Command::new(env!("CARGO_BIN_EXE_agentvault"))
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_runb"))
         .args(["--project", project.path().to_str().unwrap(), "tools"])
         .output()
         .unwrap();

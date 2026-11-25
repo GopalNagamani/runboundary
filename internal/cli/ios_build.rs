@@ -143,7 +143,7 @@ pub fn execute(
             let _retained = work.temp.keep();
             super::review::retain(root, path, baseline)?
         };
-        println!("Build-script edits remain unapplied. Review: agentvault review {session} --diff");
+        println!("Build-script edits remain unapplied. Review: runb diff {session}");
     }
     println!("Original project source unchanged. Derived build artifacts and broker state were disposable.");
     result

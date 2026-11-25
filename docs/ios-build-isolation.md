@@ -123,7 +123,7 @@ automatically by the current implementation.
 
 The intended flow is:
 
-1. Validate and lock the existing AgentVault retained session.
+1. Validate and lock the existing RunBoundary retained session.
 2. Export only a freshly validated permitted workspace snapshot. Never transfer
    the original directory, agent authentication, signing assets, host home,
    sockets, shared caches or SSH-agent forwarding.

@@ -34,10 +34,10 @@ a controller-only staging directory, checked against protected-path policy and
 published with a no-replace rename. The compiler's writable directories are
 never moved into the session. Existing output is never overwritten.
 
-From the original project, with Xcode already approved in `agentvault.yaml`:
+From the original project, with Xcode already approved in `runboundary.yaml`:
 
 ```sh
-agentvault xib-compile SESSION \
+runb xib-compile SESSION \
   --simulator-runtime "/Library/Developer/CoreSimulator/Volumes/YOUR_VOLUME/Library/Developer/CoreSimulator/Profiles/Runtimes/iOS YOUR_VERSION.simruntime" \
   --input Views/MyView.xib --output Views/MyView.compiled.nib \
   --module YourApp --deployment-target 17.2

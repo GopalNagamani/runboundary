@@ -1,4 +1,4 @@
-use agentvault::{
+use runboundary::{
     policy::{config::Config, matcher::Matcher},
     security::paths::Dir,
     workspace::prepare,
@@ -99,7 +99,7 @@ fn npm_bin_link_is_recreated_without_following_and_tracks_target_edits() {
     std::fs::write(work.path().join("node_modules/acorn/bin/acorn"), "edited").unwrap();
     let out = Dir::open(work.path()).unwrap();
     let after = prepare::snapshot(&out, &m, true).unwrap();
-    agentvault::workspace::sync::apply(p.path(), &root, &out, &work.baseline, &after, &m).unwrap();
+    runboundary::workspace::sync::apply(p.path(), &root, &out, &work.baseline, &after, &m).unwrap();
     assert_eq!(std::fs::read(&target).unwrap(), b"edited");
     assert_eq!(
         std::fs::read_link(p.path().join("node_modules/.bin/acorn")).unwrap(),
@@ -153,7 +153,7 @@ fn symlink_add_modify_delete_and_rollback_are_safe() {
     symlink("a", work.path().join("added")).unwrap();
     let out = Dir::open(work.path()).unwrap();
     let after = prepare::snapshot(&out, &m, true).unwrap();
-    agentvault::workspace::sync::apply(p.path(), &root, &out, &work.baseline, &after, &m).unwrap();
+    runboundary::workspace::sync::apply(p.path(), &root, &out, &work.baseline, &after, &m).unwrap();
     assert_eq!(
         std::fs::read_link(p.path().join("link")).unwrap(),
         std::path::Path::new("b")
@@ -178,7 +178,7 @@ fn symlink_add_modify_delete_and_rollback_are_safe() {
     let out = Dir::open(work.path()).unwrap();
     let after = prepare::snapshot(&out, &m, true).unwrap();
     assert!(
-        agentvault::workspace::sync::apply(p.path(), &root, &out, &work.baseline, &after, &m)
+        runboundary::workspace::sync::apply(p.path(), &root, &out, &work.baseline, &after, &m)
             .is_err()
     );
     assert_eq!(
@@ -213,8 +213,8 @@ fn sandbox_link_retargeted_to_secret_or_outside_is_rejected_before_apply() {
 fn reviewed_link_targets_are_displayed_without_reading_target_contents() {
     let p = tempfile::tempdir().unwrap();
     std::fs::write(
-        p.path().join("agentvault.yaml"),
-        agentvault::policy::config::DEFAULT,
+        p.path().join("runboundary.yaml"),
+        runboundary::policy::config::DEFAULT,
     )
     .unwrap();
     std::fs::write(
@@ -225,11 +225,11 @@ fn reviewed_link_targets_are_displayed_without_reading_target_contents() {
     let m = Matcher::new(&Config::defaults()).unwrap();
     let work = prepare::prepare(&Dir::open(p.path()).unwrap(), &m).unwrap();
     symlink("target", work.path().join("alias")).unwrap();
-    agentvault::security::audit::log(p.path(), "test", "synthetic link review").unwrap();
+    runboundary::security::audit::log(p.path(), "test", "synthetic link review").unwrap();
     let id =
-        agentvault::cli::review::retain(p.path(), work.path().to_owned(), work.baseline.clone())
+        runboundary::cli::review::retain(p.path(), work.path().to_owned(), work.baseline.clone())
             .unwrap();
-    let output = std::process::Command::new(env!("CARGO_BIN_EXE_agentvault"))
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_runb"))
         .args([
             "--project",
             p.path().to_str().unwrap(),
@@ -265,7 +265,7 @@ fn staged_symlink_is_removed_safely_when_a_later_commit_fails() {
     let out = Dir::open(work.path()).unwrap();
     let after = prepare::snapshot(&out, &m, true).unwrap();
     assert!(
-        agentvault::workspace::sync::apply(p.path(), &root, &out, &work.baseline, &after, &m)
+        runboundary::workspace::sync::apply(p.path(), &root, &out, &work.baseline, &after, &m)
             .is_err()
     );
     assert!(std::fs::symlink_metadata(p.path().join("a-link"))

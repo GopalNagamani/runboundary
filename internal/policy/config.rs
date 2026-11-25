@@ -2,7 +2,9 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
-pub const DEFAULT: &str = include_str!("../../examples/agentvault.yaml");
+pub const DEFAULT: &str = include_str!("../../examples/runboundary.yaml");
+pub const FILE_NAME: &str = "runboundary.yaml";
+pub(crate) const LEGACY_FILE_NAME: &str = "agentvault.yaml";
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Config {
@@ -47,8 +49,11 @@ pub struct Audit {
 impl Config {
     pub fn load(root: &Path) -> Result<Self> {
         let dir = crate::security::paths::Dir::open(root)?;
-        let bytes = dir.read_file("agentvault.yaml", 128 * 1024)?.0;
-        let config: Self = serde_yaml::from_slice(&bytes).context("invalid agentvault.yaml")?;
+        let (bytes, _) = dir
+            .read_file(FILE_NAME, 128 * 1024)
+            .with_context(|| format!("cannot read project policy {FILE_NAME}"))?;
+        let config: Self =
+            serde_yaml::from_slice(&bytes).with_context(|| format!("invalid {FILE_NAME}"))?;
         super::validator::validate(&config)?;
         Ok(config)
     }

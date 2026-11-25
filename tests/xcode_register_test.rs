@@ -1,5 +1,5 @@
 //! Project metadata tests; these do not certify sandbox or Simulator confinement.
-use agentvault::{
+use runboundary::{
     cli::review,
     policy::{config::Config, matcher::Matcher},
     security::{audit, paths::Dir},
@@ -82,7 +82,7 @@ fn malformed_unsupported_and_traversal_projects_are_refused() {
     .is_err());
 }
 fn cli(root: &Path, args: &[&str]) -> std::process::Output {
-    Command::new(env!("CARGO_BIN_EXE_agentvault"))
+    Command::new(env!("CARGO_BIN_EXE_runb"))
         .arg("--project")
         .arg(root)
         .args(args)
@@ -211,13 +211,13 @@ fn apple_plutil_accepts_registered_openstep_project() {
 #[test]
 #[ignore = "requires an explicitly selected existing project.pbxproj; reads metadata only, writes a temporary copy"]
 fn existing_project_metadata_copy() {
-    let selected = std::env::var_os("AGENTVAULT_TEST_XCODE_PROJECT_FILE")
-        .expect("set AGENTVAULT_TEST_XCODE_PROJECT_FILE to the selected project.pbxproj");
+    let selected = std::env::var_os("RUNBOUNDARY_TEST_XCODE_PROJECT_FILE")
+        .expect("set RUNBOUNDARY_TEST_XCODE_PROJECT_FILE to the selected project.pbxproj");
     let text = std::fs::read_to_string(selected).unwrap();
-    let (updated, count) = register(&text, &["agentvault-synthetic-navigator-check.txt"]).unwrap();
+    let (updated, count) = register(&text, &["runboundary-synthetic-navigator-check.txt"]).unwrap();
     assert_eq!(count, 1);
     assert_eq!(
-        register(&updated, &["agentvault-synthetic-navigator-check.txt"])
+        register(&updated, &["runboundary-synthetic-navigator-check.txt"])
             .unwrap()
             .1,
         0
@@ -260,11 +260,11 @@ fn missing_or_applied_session_reports_the_missing_record_without_recreating_it()
         "{error}"
     );
     assert!(
-        error.contains(".agentvault/review-old-session.json"),
+        error.contains(".runboundary/review-old-session.json"),
         "{error}"
     );
     assert!(!root
         .path()
-        .join(".agentvault/review-old-session.json")
+        .join(".runboundary/review-old-session.json")
         .exists());
 }
