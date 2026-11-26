@@ -7,6 +7,7 @@ pub mod preview;
 pub mod review;
 pub mod run;
 pub mod tools;
+mod update;
 pub mod xcode_register;
 pub mod xib_compile;
 use clap::{Parser, Subcommand};
@@ -26,6 +27,14 @@ pub struct Cli {
 }
 #[derive(Subcommand)]
 pub enum Commands {
+    /// Check the npm preview and offer to install a newer version.
+    Update {
+        /// Only report the available version.
+        #[arg(long)]
+        check: bool,
+    },
+    #[command(hide = true)]
+    RefreshUpdates,
     /// Save or remove explicit login adapter approval.
     Auth {
         #[command(subcommand)]
@@ -125,6 +134,7 @@ pub enum Commands {
         /// Ignore a previously approved adapter for this invocation.
         #[arg(long, conflicts_with = "auth_adapter")]
         no_saved_auth: bool,
+        /// Agent executable (for example, codex or claude), followed by any agent arguments.
         #[arg(required = true, trailing_var_arg = true)]
         agent: Vec<String>,
     },
@@ -185,6 +195,14 @@ pub enum Commands {
     Audit,
 }
 pub fn execute(cli: Cli) -> anyhow::Result<i32> {
+    if let Commands::Update { check } = &cli.command {
+        update::execute(*check)?;
+        return Ok(0);
+    }
+    if matches!(&cli.command, Commands::RefreshUpdates) {
+        let _ = update::refresh();
+        return Ok(0);
+    }
     if let Commands::Auth { command } = &cli.command {
         auth::execute(command)?;
         return Ok(0);
@@ -194,6 +212,12 @@ pub fn execute(cli: Cli) -> anyhow::Result<i32> {
     }
     if let Commands::ActoolClient { bridge, arguments } = &cli.command {
         return crate::ib_bridge::client::execute_assets(bridge, arguments);
+    }
+    if matches!(
+        &cli.command,
+        Commands::Init { .. } | Commands::Doctor { .. } | Commands::Run { .. }
+    ) {
+        update::notice();
     }
     let root = cli.project.canonicalize()?;
     let record_failure = matches!(
@@ -233,7 +257,11 @@ fn execute_inner(cli: Cli) -> anyhow::Result<i32> {
             &simulator_runtime,
             allow_compiler_simulator_services,
         ),
-        Commands::Auth { .. } | Commands::IbtoolClient { .. } | Commands::ActoolClient { .. } => {
+        Commands::Auth { .. }
+        | Commands::Update { .. }
+        | Commands::RefreshUpdates
+        | Commands::IbtoolClient { .. }
+        | Commands::ActoolClient { .. } => {
             unreachable!("internal client dispatch occurs before project access")
         }
         Commands::XibCompile {
@@ -294,13 +322,27 @@ fn execute_inner(cli: Cli) -> anyhow::Result<i32> {
             let executable = agent
                 .first()
                 .ok_or_else(|| anyhow::anyhow!("missing agent"))?;
-            let codex_auth_file = auth::codex_file(executable, chatgpt, codex_auth_file)?;
+            let mut codex_auth_file = auth::codex_file(executable, chatgpt, codex_auth_file)?;
             let auth_adapter = auth::selected(
                 executable,
                 auth_adapter,
                 codex_auth_file.is_some() || !auth_env.is_empty(),
                 no_saved_auth,
             )?;
+            if agent.len() == 1
+                && std::path::Path::new(executable).file_name()
+                    == Some(std::ffi::OsStr::new("codex"))
+                && auth_env.is_empty()
+                && codex_auth_file.is_none()
+                && auth_adapter.is_none()
+                && !no_saved_auth
+            {
+                codex_auth_file = match auth::interactive_chatgpt_file()? {
+                    Some(file) if auth::confirm_chatgpt()? => Some(file),
+                    Some(_) => return Ok(0),
+                    None => None,
+                };
+            }
             run::execute_with_adapter(
                 &root,
                 apply,

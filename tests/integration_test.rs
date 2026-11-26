@@ -284,6 +284,18 @@ fn chatgpt_auth_is_explicit_and_conflicts_with_api_key_approval() {
     assert!(args
         .iter()
         .any(|v| v == "cli_auth_credentials_store=\"file\""));
+    if cfg!(target_os = "macos") {
+        assert!(
+            args.ends_with(&["--no-daemon", "--sandbox", "danger-full-access"].map(String::from))
+        );
+    }
+    assert!(Cli::try_parse_from(["runb", "run"]).is_err());
+    for name in ["codex", "claude", "hermes", "sh"] {
+        assert!(matches!(
+            Cli::try_parse_from(["runb", "run", name]).unwrap().command,
+            runboundary::cli::Commands::Run { agent, chatgpt: false, .. } if agent == [name]
+        ));
+    }
     assert!(runboundary::sandbox::process::agent_entrypoint_with_auth(
         "claude",
         Path::new("/usr/bin/claude"),

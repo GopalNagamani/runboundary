@@ -4,11 +4,18 @@ A Rust CLI that launches coding agents in a mandatory OS sandbox with a copied, 
 
 RunBoundary excludes sensitive project paths before copying files and keeps the original project outside the agent’s approved filesystem access. It never falls back to an unsandboxed launch. Filename patterns decide what is copied; Linux namespaces or macOS Seatbelt rules enforce the configured filesystem boundary. The macOS backend does not provide Linux namespace isolation.
 
+## 60-second demo
+
+![Animated walkthrough of RunBoundary excluding a fake .env file and reviewing a sandboxed edit](docs/media/runboundary-demo.gif)
+
+See how to install RunBoundary on an Apple Silicon Mac, run in a filtered copy,
+and review an edit before applying it to the original project.
+
 ## Release status
 
 | Platform | Status |
 | --- | --- |
-| macOS (Apple Silicon) | [Version 0.1.0 preview on npm](https://www.npmjs.com/package/runboundary/v/0.1.0). |
+| macOS (Apple Silicon) | [Version 0.1.4 preview on npm](https://www.npmjs.com/package/runboundary/v/0.1.4). |
 | Linux | Coming soon. The Bubblewrap backend is available for development from source. |
 | Windows | Coming soon. Path validation is implemented, and the native sandbox is in development. |
 
@@ -42,6 +49,16 @@ for the test runtimes. See the [native macOS guide](docs/macos.md) for setup,
 limitations and shell/agent examples, and [validation evidence](docs/validation.md).
 `init` selects `seatbelt` on macOS and `bubblewrap` on Linux; a mismatched
 existing configuration is refused.
+
+## Update RunBoundary
+
+Run `runb update --check` to check the npm preview from any directory. If an
+update is available, `runb update` offers to install it when you are using an
+interactive terminal and the active global npm installation.
+
+Interactive `runb init`, `runb doctor`, and `runb run` check the preview in the
+background at most once every 24 hours and show available updates on subsequent
+runs. Set `RUNBOUNDARY_NO_UPDATE_CHECK=1` to disable automatic checks.
 
 ## Linux prerequisites and installation
 
@@ -120,11 +137,12 @@ installed under Homebrew, initialize the project with
 project, add that path to `sandbox.runtime_roots` in `runboundary.yaml`.
 On Linux, use a trusted system runtime such as `/usr/local`.
 
-From the initialized project's directory, choose the launch command for your agent:
+From the initialized project’s directory, run `runb run AGENT` with the name
+of your agent.
 
 | Agent | Setup | Launch |
 | --- | --- | --- |
-| Codex with ChatGPT | Sign in to Codex with a [file-backed login](#codex-with-your-chatgpt-login). | `runb run --chatgpt codex` |
+| Codex with ChatGPT | Sign in to Codex with a [file-backed login](#codex-with-your-chatgpt-login). | `runb run codex` |
 | Codex with an API key | Set `OPENAI_API_KEY` in your environment. | `runb run --auth-env OPENAI_API_KEY codex` |
 | Claude Code | Set `ANTHROPIC_API_KEY` in your environment. | `runb run --auth-env ANTHROPIC_API_KEY claude` |
 | Freebuff | Sign in normally, then approve its profile with `runb auth setup freebuff`. | `runb run freebuff` |
@@ -137,24 +155,20 @@ To check the local sandbox, executable, and selected credential source, replace
 
 ### Codex with your ChatGPT login
 
-From a project initialized with `runb init`, explicitly approve the file-backed
-Codex login at `$HOME/.codex/auth.json`:
+From a project initialized with `runb init`, run:
 
 ```sh
-runb doctor --chatgpt
-runb run --chatgpt codex
+runb run codex
 ```
 
-Use `--codex-auth-file PATH` for a different login file. If your Codex version
-needs the terminal compatibility options, pass them after `codex`:
+When a file-backed ChatGPT login is available, RunBoundary asks whether to
+use it for this session. On macOS, it starts Codex in the foreground under
+RunBoundary’s Seatbelt sandbox. When you exit Codex, review your changes with
+`runb diff SESSION_ID` and approve them with `runb apply SESSION_ID`.
 
-```sh
-runb run --chatgpt codex --no-daemon --no-alt-screen \
-  --sandbox danger-full-access --ask-for-approval on-request
-```
-
-In that example, RunBoundary enforces the OS sandbox while Codex skips its own
-nested sandbox. Choose one authentication option per invocation.
+Use `runb doctor --chatgpt` to check the setup, `runb run --chatgpt codex` to approve
+the default login from the command line, or `--codex-auth-file PATH` for a
+different login file.
 
 This imports only ChatGPT tokens/account information into a disposable, private
 Codex home. It does not import host settings, sessions, plugins, or the Keychain.
