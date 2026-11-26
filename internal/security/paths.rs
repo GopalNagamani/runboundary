@@ -158,6 +158,25 @@ impl Dir {
     pub fn identity(&self) -> Result<Identity> {
         stat(&self.file)
     }
+
+    /// Return bytes available to this user and the allocation block size.
+    pub(crate) fn filesystem_space(&self) -> Result<(u128, u128)> {
+        let mut info = std::mem::MaybeUninit::<libc::statvfs>::uninit();
+        if unsafe { libc::fstatvfs(self.file.as_raw_fd(), info.as_mut_ptr()) } != 0 {
+            return Err(std::io::Error::last_os_error())
+                .context("cannot check space on the temporary workspace filesystem");
+        }
+        let info = unsafe { info.assume_init() };
+        let block_size = u128::from(if info.f_frsize == 0 {
+            info.f_bsize
+        } else {
+            info.f_frsize
+        });
+        if block_size == 0 {
+            bail!("temporary workspace filesystem did not report an allocation block size");
+        }
+        Ok((u128::from(info.f_bavail) * block_size, block_size))
+    }
     pub fn child(&self, name: &OsStr) -> Result<Self> {
         let n = c(name)?;
         Ok(Self {

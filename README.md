@@ -4,6 +4,8 @@ A Rust CLI that launches coding agents in a mandatory OS sandbox with a copied, 
 
 RunBoundary excludes sensitive project paths before copying files and keeps the original project outside the agent’s approved filesystem access. It never falls back to an unsandboxed launch. Filename patterns decide what is copied; Linux namespaces or macOS Seatbelt rules enforce the configured filesystem boundary. The macOS backend does not provide Linux namespace isolation.
 
+Before copying, RunBoundary checks free space on the temporary workspace volume. The **64 MiB per-file limit** still applies. See [workspace sizing](docs/configuration.md#workspace-size-and-disk-space).
+
 ## 60-second demo
 
 ![Animated walkthrough of RunBoundary excluding a fake .env file and reviewing a sandboxed edit](docs/media/runboundary-demo.gif)
@@ -15,7 +17,7 @@ and review an edit before applying it to the original project.
 
 | Platform | Status |
 | --- | --- |
-| macOS (Apple Silicon) | [Version 0.1.4 preview on npm](https://www.npmjs.com/package/runboundary/v/0.1.4). |
+| macOS (Apple Silicon) | [Version 0.1.5 preview on npm](https://www.npmjs.com/package/runboundary/v/0.1.5). |
 | Linux | Coming soon. The Bubblewrap backend is available for development from source. |
 | Windows | Coming soon. Path validation is implemented, and the native sandbox is in development. |
 

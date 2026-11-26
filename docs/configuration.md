@@ -42,6 +42,18 @@ On Linux, PATH is always replaced with /usr/local/bin:/usr/bin:/bin for runtime 
 
 Authentication is separate from YAML: `--auth-env OPENAI_API_KEY` and `--auth-env ANTHROPIC_API_KEY` approve named existing environment variables. Values are supplied through execve environment, not command-line arguments. `--codex-auth-file /absolute/path/auth.json` instead approves a file-backed ChatGPT login for Codex, mutually exclusive with --auth-env. Only validated ChatGPT credential fields are copied to the disposable private home, never a whole host OAuth directory or Keychain. Refreshed credentials are discarded, not written back; token rotation may require re-login. `doctor` validates the selected local credential source but does not contact the provider or validate token scope. See the README for commands and credential exposure limitations.
 
+## Workspace size and disk space
+
+RunBoundary estimates the disk space needed for the files it will copy and
+checks available space on the temporary workspace volume before copying.
+Projects can exceed 1 GiB when there is enough space. Set `TMPDIR` to a private,
+writable directory on a larger volume if needed. Space can change during a
+run, and retained sessions continue to use space until cleaned up.
+
+The 64 MiB per-file limit applies during copying and review. Use
+`filesystem.protected` to omit generated files or caches if needed. RunBoundary
+also rejects protected output paths during review and apply.
+
 ## Platform-specific initialization
 
 Provider authentication is optional. RunBoundary does not require keys based on
