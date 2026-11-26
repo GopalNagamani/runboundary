@@ -24,6 +24,21 @@ pub fn execute_with_adapter(
     auth_file: Option<&Path>,
     adapter_file: Option<&Path>,
 ) -> Result<i32> {
+    execute_with_editor(root, apply, auth, agent, auth_file, adapter_file, None)
+}
+
+pub(super) fn execute_with_editor(
+    root: &Path,
+    apply: bool,
+    auth: &[String],
+    agent: &[String],
+    auth_file: Option<&Path>,
+    adapter_file: Option<&Path>,
+    editor: Option<(&str, Option<&Path>)>,
+) -> Result<i32> {
+    if editor.is_some() {
+        super::editor::require_macos()?;
+    }
     if adapter_file.is_some() && (auth_file.is_some() || !auth.is_empty()) {
         bail!("authentication modes conflict");
     }
@@ -132,10 +147,29 @@ pub fn execute_with_adapter(
                 "Codex API-key login command succeeded; model request not verified",
             )?;
         }
-        println!("\nProtected paths/subtrees excluded: {}\nSandbox preflight: Verified\nStarting sandboxed agent...",work.excluded);
         let mut command = backend.command(root, work.path(), &env, &entrypoint, &arguments)?;
+        let active = if cfg!(target_os = "macos") {
+            match super::editor::register(&dir, work.temp.path()) {
+                Ok(lock) => Some(lock),
+                Err(error) => {
+                    eprintln!("RunBoundary: could not register live editor access: {error:#}");
+                    None
+                }
+            }
+        } else {
+            None
+        };
+        if let Some((app, file)) = editor {
+            super::editor::open(work.path(), app, file)?;
+        }
+        println!("\nProtected paths/subtrees excluded: {}\nSandbox preflight: Verified\nStarting sandboxed agent...",work.excluded);
+        if active.is_some() {
+            println!("Open the live copy from another terminal with: runb open EDITOR");
+        }
         audit::log(root, "launch_requested", backend.name())?;
-        let status = process::interactive(&mut command)?;
+        let status = process::interactive(&mut command);
+        drop(active);
+        let status = status?;
         let code = process::exit_code(status);
         audit::log(root, "process_exited", &format!("exit_code={code}"))?;
         backend.cleanup_private_dirs(work.path(), &env)?;
