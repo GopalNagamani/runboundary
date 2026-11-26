@@ -43,6 +43,15 @@ a new project with `runb init --runtime-root /opt/homebrew`.
 
 For prerequisites, sign-in steps, and custom adapters, see [Connect an agent](https://github.com/GopalNagamani/agentvault/blob/develop/README.md#connect-an-agent).
 
+## Open a live workspace in an editor
+
+Launch both together with `runb run --editor vscode codex`, or use
+`runb open vscode` from a second terminal in the same original project while the
+agent is running. Use `xcode`, `cursor`, or an installed macOS app name to choose
+another editor. For a nested Xcode workspace, use `--editor-file PATH` with
+`runb run` or `--file PATH` with `runb open`. The editor and any builds it runs
+use your normal macOS permissions.
+
 ## Edit the project policy
 
 `runb init` creates `runboundary.yaml` in the project root. Open it in your editor

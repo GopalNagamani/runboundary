@@ -1,6 +1,7 @@
 pub mod audit;
 pub mod auth;
 pub mod doctor;
+mod editor;
 pub mod init;
 pub mod ios_build;
 pub mod preview;
@@ -116,6 +117,12 @@ pub enum Commands {
     },
     /// Run an agent in a copied workspace with mandatory platform isolation.
     Run {
+        /// Open the copied workspace in a macOS editor when the session starts.
+        #[arg(long)]
+        editor: Option<String>,
+        /// Workspace-relative file or Xcode project to open.
+        #[arg(long, requires = "editor")]
+        editor_file: Option<PathBuf>,
         /// Explicit approval to apply the summarized session changes after successful agent exit.
         #[arg(long)]
         apply: bool,
@@ -137,6 +144,17 @@ pub enum Commands {
         /// Agent executable (for example, codex or claude), followed by any agent arguments.
         #[arg(required = true, trailing_var_arg = true)]
         agent: Vec<String>,
+    },
+    /// Open a running agent's workspace in a macOS editor.
+    Open {
+        /// Editor alias (vscode, cursor, xcode) or installed macOS app name.
+        editor: String,
+        /// Workspace-relative file or Xcode project to open.
+        #[arg(long)]
+        file: Option<PathBuf>,
+        /// Choose an active session when several are running.
+        #[arg(long)]
+        session: Option<String>,
     },
     /// Show the changes in a retained session.
     Diff { session: String },
@@ -311,6 +329,8 @@ fn execute_inner(cli: Cli) -> anyhow::Result<i32> {
             Ok(0)
         }
         Commands::Run {
+            editor,
+            editor_file,
             apply,
             auth_env,
             chatgpt,
@@ -343,14 +363,23 @@ fn execute_inner(cli: Cli) -> anyhow::Result<i32> {
                     None => None,
                 };
             }
-            run::execute_with_adapter(
+            run::execute_with_editor(
                 &root,
                 apply,
                 &auth_env,
                 &agent,
                 codex_auth_file.as_deref(),
                 auth_adapter.as_deref(),
+                editor.as_deref().map(|app| (app, editor_file.as_deref())),
             )
+        }
+        Commands::Open {
+            editor,
+            file,
+            session,
+        } => {
+            editor::execute(&root, &editor, file.as_deref(), session.as_deref())?;
+            Ok(0)
         }
         Commands::Diff { session } => {
             review::execute(&root, &session, false, true)?;

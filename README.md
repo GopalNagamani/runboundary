@@ -17,7 +17,7 @@ and review an edit before applying it to the original project.
 
 | Platform | Status |
 | --- | --- |
-| macOS (Apple Silicon) | [Version 0.1.4 preview on npm](https://www.npmjs.com/package/runboundary/v/0.1.4). |
+| macOS (Apple Silicon) | [Version 0.1.5 preview on npm](https://www.npmjs.com/package/runboundary/v/0.1.5). |
 | Linux | Coming soon. The Bubblewrap backend is available for development from source. |
 | Windows | Coming soon. Path validation is implemented, and the native sandbox is in development. |
 
@@ -221,6 +221,33 @@ RunBoundary enforces its built-in protected patterns independently of this list.
 After saving, run `runb doctor sh` to validate the policy and check sandbox
 startup. See the [configuration reference](docs/configuration.md) for supported
 fields, runtime roots, and path matching rules.
+
+## Open the live workspace in an editor on macOS
+
+Start your agent and open its copied workspace in one command:
+
+```sh
+runb run --editor vscode codex
+runb run --editor xcode --editor-file ios/Runner.xcworkspace codex
+```
+
+With the agent already running, open the editor from a second terminal in the
+original project:
+
+```sh
+runb open vscode
+runb open xcode --file ios/Runner.xcworkspace
+```
+
+Use `cursor` or the installed app name for other editors. Xcode opens a single
+top-level `.xcworkspace` or, if there are no workspaces, a single `.xcodeproj`.
+Use the file option for projects in subdirectories or when there are several
+matches. If several agent sessions are running, `runb open` lists their IDs.
+Choose one with `runb open vscode --session ID`.
+
+The editor and any build or run launched from it use your normal macOS
+permissions. Only open projects you trust, and avoid editing the same file in
+both the editor and the agent at once.
 
 ## Reviewing and applying edits
 

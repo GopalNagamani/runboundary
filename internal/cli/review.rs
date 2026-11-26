@@ -76,7 +76,7 @@ pub(super) fn load(root: &Path, id: &str) -> Result<(Record, std::fs::File)> {
     Ok((record, lock))
 }
 
-fn validate_workspace(root: &Path, id: &str, workspace: &Path) -> Result<()> {
+pub(super) fn validate_workspace(root: &Path, id: &str, workspace: &Path) -> Result<()> {
     use std::os::unix::fs::MetadataExt;
     let parent = workspace
         .parent()
